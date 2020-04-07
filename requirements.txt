@@ -1,7 +1,6 @@
 pytorch-lightning
-torch >=1.3.0
+torch >=1.4.0
 numpy >= 1.11.1
-pyyaml
-tqdm
 scipy
 matplotlib
+albumentations
