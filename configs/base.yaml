@@ -1,0 +1,14 @@
+## Data
+# data_path : "datasets/arctic/"
+name : "base"
+
+## Training parameters
+seed : 1
+device : "2"
+batch_size : 64
+# model_params : {"num_layers" : 5}
+datasets : ["cifar10"]
+
+lr : 0.0001
+adam_b1 : 0.5
+adam_b2 : 0.9
