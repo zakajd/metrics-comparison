@@ -1,5 +1,19 @@
 # Repository for the experimental metrics comparison
 
+Available datasets:
+- MNIST
+- FashionMNIST
+- CIFAR10
+- CIFAR100
+- TinyImageNet
+
+Task:
+- Denoising
+- Deblurring
+
+Metrics:
+- PSNR, SSIM, MSID, FID, KID, Total variation, ...
+
 ## Installation
 - If you use environment managing systems, create a new one `conda env create -n "metrics"`
 - Install all requiered packages `pip3 install -r requirements.txt`
