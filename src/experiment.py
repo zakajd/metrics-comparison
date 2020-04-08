@@ -23,7 +23,7 @@ class BaseModel(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.hparams = hparams
-        self.model = Unet(in_channels=3)
+        self.model = UNet(in_channels=3)
 
         self.feature_extractor = torchvision.models.__dict__[self.hparams.feature_extractor](
             pretrained=True)
@@ -34,13 +34,13 @@ class BaseModel(pl.LightningModule):
         self.criterion = torch.nn.MSELoss()
 
         # Per-image metrics
-        self.ms_ssim = pm.MultiScaleSSIMLoss(kernel_size=7)
-        self.ssim = pm.SSIMLoss(kernel_size=7)
+        # self.ms_ssim = pm.MultiScaleSSIMLoss(kernel_size=3)
+        self.ssim = pm.SSIMLoss(kernel_size=3)
 
         # Distribution metrics
-        self.msid = MSID()
-        self.fid = FID()
-        self.kid = KID()
+        self.msid = pm.MSID()
+        self.fid = pm.FID()
+        self.kid = pm.KID()
 
     def forward(self, x):
         return self.model(x)
@@ -69,10 +69,10 @@ class BaseModel(pl.LightningModule):
         loss_val = self.criterion(prediction, target)
 
         # Compute metrics
-        mse = torch.nn.MSELoss(prediction, target)
-        psnr = 10 * torch.log10(1. / mse.item())
-        ssim_score = self.ssim(prediction, target, max_val=1.)
-        ms_ssim_score = self.ms_ssim(prediction, target, max_val=1.)
+        mse = torch.mean((prediction - target) ** 2)
+        psnr = 20 * torch.log10(1.0 / torch.sqrt(mse))
+        ssim_score = self.ssim(prediction, target, data_range=2.)
+        # ms_ssim_score = self.ms_ssim(prediction, target, data_range=2.)
 
         input_features = self.feature_extractor(input)
 
@@ -86,7 +86,7 @@ class BaseModel(pl.LightningModule):
             'val_mse': mse,
             'val_psnr': psnr,
             'val_ssim': ssim_score,
-            'val_ms_ssim': ms_ssim_score,
+            # 'val_ms_ssim': ms_ssim_score,
             'input_features': input_features,
             'target_features': target_features
         })
@@ -98,7 +98,7 @@ class BaseModel(pl.LightningModule):
         tqdm_dict = {}
 
         # Reduce per-image metrics
-        for metric_name in ["val_loss", "val_mse", "val_psnr", "val_ssim", "val_ms_ssim"]:
+        for metric_name in ["val_loss", "val_mse", "val_psnr", "val_ssim"]: # val_ms_ssim
             metric_total = 0
 
             for output in outputs:
@@ -109,21 +109,22 @@ class BaseModel(pl.LightningModule):
             tqdm_dict[metric_name] = metric_total / len(outputs)
 
         # Collect computed image features into a vector of size (val_size, feat_size)
-         all_input_features = output["input_features"]
-         input_features = torch.cat(all_input_features, dim=0)
 
-         if self.validation_features is None:
-             self.validation_features = torch.cat(output["target_features"], dim=0)
-        
-        print(input_features.shape, self.validation_features.shape)
+        all_input_features = [out["input_features"] for out in outputs]
+        input_features = torch.cat(all_input_features, dim=0)
 
-        # msid_score = self.msid(input_features, self.validation_features)
-        # kid_score = self.kid(input_features, self.validation_features)
-        # fid_score = self.fid(input_features, self.validation_features)
+        if self.validation_features is None:
+            all_target_features = [out["target_features"] for out in outputs]
+            self.validation_features = torch.cat(all_target_features, dim=0)
         
-        # tqdm_dict["val_msid"] = msid_score
-        # tqdm_dict["val_kid"] = kid_score
-        # tqdm_dict["val_fid"] = fid_score
+
+        msid_score = self.msid(input_features.cpu(), self.validation_features.cpu())
+        kid_score = self.kid(input_features.cpu(), self.validation_features.cpu())
+        fid_score = self.fid(input_features.cpu(), self.validation_features.cpu())
+        
+        tqdm_dict["val_msid"] = msid_score
+        tqdm_dict["val_kid"] = kid_score
+        tqdm_dict["val_fid"] = fid_score
 
         result = {'progress_bar': tqdm_dict, 'log': tqdm_dict, 'val_loss': tqdm_dict["val_loss"]}
         return result
@@ -187,5 +188,5 @@ class BaseModel(pl.LightningModule):
         grid_target = torchvision.utils.make_grid(target[:16], nrow=4)
         grid_output = torchvision.utils.make_grid(output[:16], nrow=4)
 
-        self.logger.experiment.add_image(f'Target images', grid_target, self.current_epoch)
-        self.logger.experiment.add_image(f'Output images', grid_output, self.current_epoch)
+        self.logger.experiment.add_image(f'Target_images', grid_target, self.current_epoch)
+        self.logger.experiment.add_image(f'Output_images', grid_output, self.current_epoch)

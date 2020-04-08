@@ -22,14 +22,14 @@ def main():
     model = BaseModel(hparams)
 
     profiler = True  # , AdvancedProfiler()
-    logger = TensorBoardLogger("logs", name="MNIST")
+    logger = TensorBoardLogger("logs", name=hparams.name)
     # checkpoint_callback = ModelCheckpoint(
     #     filepath='models/{epoch}-{val_loss:.2f}')
 
     trainer = pl.Trainer(
         logger=logger, gpus=hparams.device, benchmark=True,
-        check_val_every_n_epoch=5, fast_dev_run=True,  # overfit_pct=0.01,
-        max_epochs=hparams.epochs, profiler=profiler,
+        check_val_every_n_epoch=5, fast_dev_run=False,  # overfit_pct=0.01,
+        max_epochs=hparams.epochs, profiler=profiler, weights_summary='top',
         precision=32, amp_level='O1',)  # checkpoint_callback=checkpoint_callback)
 
     trainer.fit(model)

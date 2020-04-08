@@ -24,6 +24,9 @@ class MNIST(torchvision.datasets.MNIST):
         # Add channels dimension
         img = img.unsqueeze(0)
 
+        # Convert to Numpy, so Albumentations can work
+        img = img.numpy()
+
         if self.transform is not None:
             augmented = self.transform(image=img)
         input = augmented["image"] if self.transform else img

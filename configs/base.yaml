@@ -1,16 +1,18 @@
+name : "test"
+
 ## General
 seed : 1
 device : null # CPU
 datasets : ["cifar10"]
-data_mean : 0.5 0.5 0.5
-data_std : 0.5 0.5 0.5
+data_mean : [0.5, 0.5, 0.5]
+data_std : [0.5, 0.5, 0.5]
 aug_type : "light"
 task : "denoise"
 
 ## Training parameters
 size : 32
 arch : "resnet18"
-feature_exctractor : "resnet18"
+feature_extractor : "resnet18"
 pretrained : False
 epochs : 80
 batch_size : 512

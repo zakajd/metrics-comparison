@@ -11,17 +11,20 @@ def get_parser():
     )
     add_arg = parser.add_argument
 
+    add_arg("--name", type=str, default="test", help="Folder name for logs")
     # General
     add_arg("--seed", type=int, default=42, help="Random seed for reproducable results")
     add_arg("--device", type=str, default="0", help="Device used for training. Can be `1, 2` or `-1`.")
     add_arg("--datasets", default=["cifar10"], type=str, nargs="+",
             help="Datasets to use for training. Default is only CIFAR10")
-    add_arg("--aug_type", type="str", default="light")
-    add_arg("--task", type="str", default="denoise", choices=["denoise", "deblur"])
+    add_arg("--aug_type", type=str, default="light")
+    add_arg("--task", type=str, default="denoise", choices=["denoise", "deblur"])
     add_arg("--data_mean", type=float, default=[0.5, 0.5, 0.5], nargs=3,
             help="Mean used for normalization")
     add_arg("--data_std", type=float, default=[0.5, 0.5, 0.5], nargs=3,
             help="Std used for normalization")
+    add_arg("--feature_extractor", type=str, default="resnet18", 
+            help="Converts images into low-dimensional representation")
 
     #  Training parameters
     add_arg('-a', '--arch', metavar='ARCH', default='resnet18', help='model architecture')

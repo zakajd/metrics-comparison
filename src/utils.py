@@ -14,7 +14,3 @@ def set_random_seed(seed):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
-
-def get_metric_from_name(name: str):
-    
-    
