@@ -9,10 +9,9 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 from src.arg_parser import parse_args
-from src.melgan import MelGAN
 from src.datasets import get_dataloader
 from src.utils import set_random_seed
-
+from src.experiment import BaseModel
 
 
 def main():
@@ -20,23 +19,22 @@ def main():
     print(hparams)
 
     # Fix all seeds for reprodusability
-    set_random_seed(hparams.seed)  
+    set_random_seed(hparams.seed)
 
-    vocoder = MelGAN(hparams)
+    model = BaseModel(hparams)
 
-    profiler = True # , AdvancedProfiler()
-    logger = TensorBoardLogger("logs", name="MelGAN")
-    checkpoint_callback = ModelCheckpoint(
-        filepath='models/{epoch}-{val_loss:.2f}')
-    # # most basic trainer, uses good defaults (1 gpu)
+    profiler = True  # , AdvancedProfiler()
+    logger = TensorBoardLogger("logs", name="MNIST")
+    # checkpoint_callback = ModelCheckpoint(
+    #     filepath='models/{epoch}-{val_loss:.2f}')
+
     trainer = pl.Trainer(
-        logger=logger, gpus=hparams.device, benchmark=True, 
-        check_val_every_n_epoch=2, fast_dev_run=False, #overfit_pct=0.01,
-        log_gpu_memory='min_max',max_epochs=40, profiler=profiler, 
-        precision=32, amp_level='O1', checkpoint_callback=checkpoint_callback)
+        logger=logger, gpus=hparams.device, benchmark=True,
+        check_val_every_n_epoch=5, fast_dev_run=True,  # overfit_pct=0.01,
+        max_epochs=hparams.epochs, profiler=profiler,
+        precision=32, amp_level='O1',)  # checkpoint_callback=checkpoint_callback)
 
-    # overfit_pct=0.05    
-    trainer.fit(vocoder)   
+    trainer.fit(model)
 
 
 if __name__ == "__main__":

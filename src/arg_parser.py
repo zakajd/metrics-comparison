@@ -1,41 +1,45 @@
-# Defines functions to parse arguments from yaml files, instead of using command line arguments. 
+# Defines functions to parse arguments from yaml files, instead of using command line arguments.
 import os
 import configargparse as argparse
-# from pytorch_tools.utils.misc import get_timestamp
-
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="voice-transfer",
+        description="metrics-comparison",
         default_config_files=["configs/base.yaml"],
         args_for_setting_config_path=["-c", "--config_file"],
         config_file_parser_class=argparse.YAMLConfigFileParser,
     )
     add_arg = parser.add_argument
 
-    ## Data
-    # add_arg("--data_path", type=str, help="Path to raw data")
-    add_arg("--name", type=str, default="arctic", help="Name of the dataset to use")
-    add_arg("--extension", type=str, default=".wav", help="Files extencion")
-
-
-    ## Training parameters
+    # General
     add_arg("--seed", type=int, default=42, help="Random seed for reproducable results")
     add_arg("--device", type=str, default="0", help="Device used for training. Can be `1, 2` or `-1`.")
-    add_arg("--batch_size", type=int, default=32, help="Number of spectagams in stack")
-    # add_arg(
-    #     "--model_params", 
-    #     type=eval, 
-    #     default={"vec_len" : 128}, 
-    #     help="Additional model params as kwargs"
-    # )
+    add_arg("--datasets", default=["cifar10"], type=str, nargs="+",
+            help="Datasets to use for training. Default is only CIFAR10")
+    add_arg("--aug_type", type="str", default="light")
+    add_arg("--task", type="str", default="denoise", choices=["denoise", "deblur"])
+    add_arg("--data_mean", type=float, default=[0.5, 0.5, 0.5], nargs=3,
+            help="Mean used for normalization")
+    add_arg("--data_std", type=float, default=[0.5, 0.5, 0.5], nargs=3,
+            help="Std used for normalization")
 
-    add_arg("--datasets",default=["cifar10"],type=str,nargs="+", \
-        help="Datasets to use for training. Default is only CIFAR10")
-    
+    #  Training parameters
+    add_arg('-a', '--arch', metavar='ARCH', default='resnet18', help='model architecture')
+    add_arg('--pretrained', dest='pretrained', action='store_true', help='use pre-trained model')
+    add_arg('--epochs', default=90, type=int, metavar='N', help='number of total epochs to run')
+    add_arg("--batch_size", type=int, default=32, help="Number of images in stack")
+
+    # add_arg(
+    #     "--model_params",
+    #     type=eval,
+    #     default={"vec_len" : 128},
+    #     help="Additional model params as kwargs")
+    add_arg("--size", type=int, default=32, help="Size of image crop")
     add_arg("--lr", type=float, default=0.0001, help="Learning rate")
-    add_arg("--adam_b1", type=float, default=0.5, help="Adam B1 parameter")
-    add_arg("--adam_b2", type=float, default=0.9, help="Adam B2 parameter")
+    add_arg('--momentum', default=0.9, type=float, metavar='M',
+            help='momentum')
+    add_arg('--wd', '--weight-decay', default=1e-4, type=float,
+            metavar='W', help='weight decay', dest='weight_decay')
 
     return parser
 
@@ -47,4 +51,3 @@ def parse_args():
     # timestamp = get_timestamp()
     # name = args.name + "_" + timestamp if args.name else timestamp
     return args
-

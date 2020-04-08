@@ -1,14 +1,21 @@
-## Data
-# data_path : "datasets/arctic/"
-name : "base"
+## General
+seed : 1
+device : null # CPU
+datasets : ["cifar10"]
+data_mean : 0.5 0.5 0.5
+data_std : 0.5 0.5 0.5
+aug_type : "light"
+task : "denoise"
 
 ## Training parameters
-seed : 1
-device : "2"
-batch_size : 64
-# model_params : {"num_layers" : 5}
-datasets : ["cifar10"]
+size : 32
+arch : "resnet18"
+feature_exctractor : "resnet18"
+pretrained : False
+epochs : 80
+batch_size : 512
 
-lr : 0.0001
-adam_b1 : 0.5
-adam_b2 : 0.9
+lr : 0.0003
+momentum : 0.9
+weight-decay : 0.0001
+# model_params : {"num_layers" : 5}
