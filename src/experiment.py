@@ -27,11 +27,13 @@ class BaseModel(pl.LightningModule):
 
         self.feature_extractor = torchvision.models.__dict__[self.hparams.feature_extractor](
             pretrained=True)
+        self.feature_extractor
+
         # Hack to get intermidiate features for ResNet model
         self.feature_extractor.fc = Identity()
 
         self.validation_features = None
-        self.criterion = torch.nn.MSELoss()
+        # self.criterion = torch.nn.MSELoss()
 
         # Per-image metrics
         # self.ms_ssim = pm.MultiScaleSSIMLoss(kernel_size=3)
@@ -52,7 +54,7 @@ class BaseModel(pl.LightningModule):
         self.last_batch = batch
 
         prediction = self(input)
-        loss = self.criterion(prediction, target)
+        loss = F.mse_loss(prediction, target)
 
         tqdm_dict = {'train_loss': loss}
         output = OrderedDict({
@@ -66,20 +68,22 @@ class BaseModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         input, target = batch
         prediction = self(input)
-        loss_val = self.criterion(prediction, target)
 
-        # Compute metrics
-        mse = torch.mean((prediction - target) ** 2)
-        psnr = 20 * torch.log10(1.0 / torch.sqrt(mse))
-        ssim_score = self.ssim(prediction, target, data_range=2.)
-        # ms_ssim_score = self.ms_ssim(prediction, target, data_range=2.)
+        with torch.no_grad():
+            loss_val = F.mse_loss(prediction, target)
 
-        input_features = self.feature_extractor(input)
+            # Compute metrics
+            mse = torch.mean((prediction - target) ** 2)
+            psnr = 20 * torch.log10(1.0 / torch.sqrt(mse))
+            ssim_score = self.ssim(prediction, target, data_range=2.)
+            # ms_ssim_score = self.ms_ssim(prediction, target, data_range=2.)
 
-        if self.validation_features is None:
-            target_features = self.feature_extractor(target)
-        else:
-            target_features = None
+            input_features = self.feature_extractor(input)
+
+            if self.validation_features is None:
+                target_features = self.feature_extractor(target)
+            else:
+                target_features = None
 
         output = OrderedDict({
             'val_loss': loss_val,
@@ -96,6 +100,7 @@ class BaseModel(pl.LightningModule):
     def validation_epoch_end(self, outputs):
 
         tqdm_dict = {}
+        log_dict = {}
 
         # Reduce per-image metrics
         for metric_name in ["val_loss", "val_mse", "val_psnr", "val_ssim"]: # val_ms_ssim
@@ -106,7 +111,7 @@ class BaseModel(pl.LightningModule):
 
                 metric_total += metric_value
 
-            tqdm_dict[metric_name] = metric_total / len(outputs)
+            log_dict[metric_name] = metric_total / len(outputs)
 
         # Collect computed image features into a vector of size (val_size, feat_size)
 
@@ -122,18 +127,25 @@ class BaseModel(pl.LightningModule):
         kid_score = self.kid(input_features.cpu(), self.validation_features.cpu())
         fid_score = self.fid(input_features.cpu(), self.validation_features.cpu())
         
-        tqdm_dict["val_msid"] = msid_score
-        tqdm_dict["val_kid"] = kid_score
-        tqdm_dict["val_fid"] = fid_score
+        log_dict["val_msid"] = msid_score
+        log_dict["val_kid"] = kid_score
+        log_dict["val_fid"] = fid_score
 
-        result = {'progress_bar': tqdm_dict, 'log': tqdm_dict, 'val_loss': tqdm_dict["val_loss"]}
+        tqdm_dict["val_loss"] = log_dict["val_loss"]
+        result = {'progress_bar': tqdm_dict, 'log': log_dict, 'val_loss': tqdm_dict["val_loss"]}
         return result
 
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(
+        # optimizer = torch.optim.SGD(
+        #     self.parameters(),
+        #     lr=self.hparams.lr,
+        #     momentum=self.hparams.momentum,
+        #     weight_decay=self.hparams.weight_decay
+        # )
+
+        optimizer = torch.optim.Adam(
             self.parameters(),
             lr=self.hparams.lr,
-            momentum=self.hparams.momentum,
             weight_decay=self.hparams.weight_decay
         )
 
@@ -185,8 +197,10 @@ class BaseModel(pl.LightningModule):
         images, target = self.last_batch
         output = self(images)
 
+        grid_input = torchvision.utils.make_grid(images[:16], nrow=4)
         grid_target = torchvision.utils.make_grid(target[:16], nrow=4)
         grid_output = torchvision.utils.make_grid(output[:16], nrow=4)
 
+        self.logger.experiment.add_image(f'Augmented_images', grid_input, self.current_epoch)
         self.logger.experiment.add_image(f'Target_images', grid_target, self.current_epoch)
         self.logger.experiment.add_image(f'Output_images', grid_output, self.current_epoch)

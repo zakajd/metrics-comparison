@@ -28,8 +28,9 @@ def main():
 
     trainer = pl.Trainer(
         logger=logger, gpus=hparams.device, benchmark=True,
-        check_val_every_n_epoch=5, fast_dev_run=False,  # overfit_pct=0.01,
+        check_val_every_n_epoch=5, fast_dev_run=False, # overfit_pct=0.10,
         max_epochs=hparams.epochs, profiler=profiler, weights_summary='top',
+        nb_sanity_val_steps=0, # skip start check
         precision=32, amp_level='O1',)  # checkpoint_callback=checkpoint_callback)
 
     trainer.fit(model)

@@ -1,10 +1,10 @@
-name : cifar10_light_denoise_unet
+name : cifar100_light_unet_adam_denoise
 ## General
 seed : 1
-device : 3 # GPU
-datasets : ["cifar10"]
+device : 2 # GPU
+datasets : ["cifar100"]
 data_mean : [0.0, 0.0, 0.0]
-data_std : [1.0, 1.0, 1.0]
+data_std : [1.0, 1.0, 1.00]
 aug_type : "light"
 task : "denoise"
 
