@@ -7,6 +7,7 @@ from torchvision.transforms import Compose
 from torch.utils.data import Dataset, random_split
 from torch.utils.data import DataLoader
 
+from src.augmentations import get_aug
 
 class MNIST(torchvision.datasets.MNIST):
     def __getitem__(self, index):
@@ -41,7 +42,7 @@ class CIFAR10(torchvision.datasets.CIFAR10):
             index (int): Index
 
         Returns:
-            tuple: (image, target) where target is index of the target class.
+            tuple: (image, target) where target is untrasformed original image.
         """
         img = self.data[index]
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -64,7 +65,7 @@ class CIFAR100(torchvision.datasets.CIFAR100):
             index (int): Index
 
         Returns:
-            tuple: (image, target) where target is index of the target class.
+            tuple: (image, target) where target is untrasformed original image.
         """
         img = self.data[index]
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -80,74 +81,74 @@ class CIFAR100(torchvision.datasets.CIFAR100):
         return img, target
 
 
-class TinyImageNet(Dataset):
-    r"""Tiny ImageNet data set available from `http://cs231n.stanford.edu/tiny-imagenet-200.zip`.
+# class TinyImageNet(Dataset):
+#     r"""Tiny ImageNet data set available from `http://cs231n.stanford.edu/tiny-imagenet-200.zip`.
 
-    Args:
-        root (str): Root directory including `train`, `test` and `val` subdirectories.
-        split (str): Indicating which split to return as a data set. In {`train`, `test`, `val`}
-    transform (torchvision.transforms): A (series) of valid transformation(s).
-    in_memory (bool): Set to True if there is enough memory (about 5G) and want to minimize disk IO overhead.
-    """
+#     Args:
+#         root (str): Root directory including `train`, `test` and `val` subdirectories.
+#         split (str): Indicating which split to return as a data set. In {`train`, `test`, `val`}
+#     transform (torchvision.transforms): A (series) of valid transformation(s).
+#     in_memory (bool): Set to True if there is enough memory (about 5G) and want to minimize disk IO overhead.
+#     """
 
-    _ext = 'JPEG'
+#     _ext = 'JPEG'
 
-    _class_info = 'wnids.txt'
-    _class_annotation = 'words.txt'
-    VAL_ANNOTATION_FILE = 'val_annotations.txt'
+#     _class_info = 'wnids.txt'
+#     _class_annotation = 'words.txt'
+#     VAL_ANNOTATION_FILE = 'val_annotations.txt'
 
 
-    def __init__(self, root, split='train', transform=None, target_transform=None, in_memory=True):
-        self.root = os.path.expanduser(root)
-        self.split = split
-        self.transform = transform
-        self.target_transform = target_transform
-        self.in_memory = in_memory
-        self.split_dir = os.path.join(root, self.split)
-        self.image_paths = sorted(glob.iglob(os.path.join(self.split_dir, '**', '*.%s' % EXTENSION), recursive=True))
-        self.labels = {}  # fname - label number mapping
-        self.images = []  # used for in-memory processing
+#     def __init__(self, root, split='train', transform=None, target_transform=None, in_memory=True):
+#         self.root = os.path.expanduser(root)
+#         self.split = split
+#         self.transform = transform
+#         self.target_transform = target_transform
+#         self.in_memory = in_memory
+#         self.split_dir = os.path.join(root, self.split)
+#         self.image_paths = sorted(glob.iglob(os.path.join(self.split_dir, '**', '*.%s' % EXTENSION), recursive=True))
+#         self.labels = {}  # fname - label number mapping
+#         self.images = []  # used for in-memory processing
 
-        # build class label - number mapping
-        with open(os.path.join(self.root, CLASS_LIST_FILE), 'r') as fp:
-            self.label_texts = sorted([text.strip() for text in fp.readlines()])
-        self.label_text_to_number = {text: i for i, text in enumerate(self.label_texts)}
+#         # build class label - number mapping
+#         with open(os.path.join(self.root, CLASS_LIST_FILE), 'r') as fp:
+#             self.label_texts = sorted([text.strip() for text in fp.readlines()])
+#         self.label_text_to_number = {text: i for i, text in enumerate(self.label_texts)}
 
-        if self.split == 'train':
-            for label_text, i in self.label_text_to_number.items():
-                for cnt in range(NUM_IMAGES_PER_CLASS):
-                    self.labels['%s_%d.%s' % (label_text, cnt, EXTENSION)] = i
-        elif self.split == 'val':
-            with open(os.path.join(self.split_dir, VAL_ANNOTATION_FILE), 'r') as fp:
-                for line in fp.readlines():
-                    terms = line.split('\t')
-                    file_name, label_text = terms[0], terms[1]
-                    self.labels[file_name] = self.label_text_to_number[label_text]
+#         if self.split == 'train':
+#             for label_text, i in self.label_text_to_number.items():
+#                 for cnt in range(NUM_IMAGES_PER_CLASS):
+#                     self.labels['%s_%d.%s' % (label_text, cnt, EXTENSION)] = i
+#         elif self.split == 'val':
+#             with open(os.path.join(self.split_dir, VAL_ANNOTATION_FILE), 'r') as fp:
+#                 for line in fp.readlines():
+#                     terms = line.split('\t')
+#                     file_name, label_text = terms[0], terms[1]
+#                     self.labels[file_name] = self.label_text_to_number[label_text]
 
-        # read all images into torch tensor in memory to minimize disk IO overhead
-        if self.in_memory:
-            self.images = [self.read_image(path) for path in self.image_paths]
+#         # read all images into torch tensor in memory to minimize disk IO overhead
+#         if self.in_memory:
+#             self.images = [self.read_image(path) for path in self.image_paths]
 
-    def __len__(self):
-        return len(self.image_paths)
+#     def __len__(self):
+#         return len(self.image_paths)
 
-    def __getitem__(self, index):
-        file_path = self.image_paths[index]
+#     def __getitem__(self, index):
+#         file_path = self.image_paths[index]
 
-        if self.in_memory:
-            img = self.images[index]
-        else:
-            img = self.read_image(file_path)
+#         if self.in_memory:
+#             img = self.images[index]
+#         else:
+#             img = self.read_image(file_path)
 
-        if self.split == 'test':
-            return img
-        else:
-            # file_name = file_path.split('/')[-1]
-            return img, self.labels[os.path.basename(file_path)]
+#         if self.split == 'test':
+#             return img
+#         else:
+#             # file_name = file_path.split('/')[-1]
+#             return img, self.labels[os.path.basename(file_path)]
 
-    def read_image(self, path):
-        img = Image.open(path)
-        return self.transform(img) if self.transform else img
+#     def read_image(self, path):
+#         img = Image.open(path)
+#         return self.transform(img) if self.transform else img
 
 
 def get_dataloader(
@@ -156,20 +157,15 @@ def get_dataloader(
     batch_size=16, 
     train=True,
     train_size=0.8,
-    sample_length=24000,
     **kwargs
     ):
     """Returns data from several datasets
     
     Args:
-        datasets (list): Datset names, should be in {"arctic", "ljspeech", "vctk"}.
-        dataset_class (torch.utils.data): One of {"AudioDataset", "AudioMelDataset"}
-        resample (bool): Flag to resample with given sample rate.
-        sampling_rate (int): Parameter for torchaudio.transforms.Resample.
+        datasets (list): Datset names, should be in {"mnist", "cifar10", "cifar100"}.
         batch_size (int): Size of batch generated by dataloader.
         train (bool): Return train data if `True`, validation data if `False`.
         train_size (float): Part of data used for training
-        sample_length (int): Maximum length of a waveform segment. Fixed size is needed for batching.
 
     Returns:
         dataloader
