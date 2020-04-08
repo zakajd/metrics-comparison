@@ -54,7 +54,8 @@ class BaseModel(pl.LightningModule):
         self.last_batch = batch
 
         prediction = self(input)
-        loss = F.mse_loss(prediction, target)
+        # loss = F.mse_loss(prediction, target)
+        loss = F.l1_loss(prediction, target)
 
         tqdm_dict = {'train_loss': loss}
         output = OrderedDict({
@@ -70,7 +71,8 @@ class BaseModel(pl.LightningModule):
         prediction = self(input)
 
         with torch.no_grad():
-            loss_val = F.mse_loss(prediction, target)
+            # loss_val = F.mse_loss(prediction, target)
+            loss_val = F.l1_loss(prediction, target)
 
             # Compute metrics
             mse = torch.mean((prediction - target) ** 2)
@@ -149,8 +151,8 @@ class BaseModel(pl.LightningModule):
             weight_decay=self.hparams.weight_decay
         )
 
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
-        return [optimizer], [scheduler]
+        # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
+        return [optimizer] #, [scheduler]
 
     def train_dataloader(self):
         # Transforms

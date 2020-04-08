@@ -1,4 +1,4 @@
-name : cifar100_light_unet_adam_denoise
+name : cifar100_denoise_light_unet_l1
 ## General
 seed : 1
 device : 2 # GPU
@@ -15,7 +15,7 @@ feature_extractor : "resnet18"
 epochs : 80
 batch_size : 512
 
-lr : 0.0003
+lr : 0.003
 momentum : 0.9
 weight-decay : 0.0001
 # model_params : {"num_layers" : 5}
