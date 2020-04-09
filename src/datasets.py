@@ -21,8 +21,9 @@ class MNIST(torchvision.datasets.MNIST):
                 and input is transformed original image
         """
         img = self.data[index]
-        # Add channels dimension
-        img = img.unsqueeze(0)
+        # Add channels dimension and stack 3 identical tensors 
+        # Shape (H, W, channels)
+        img = img.unsqueeze(2).repeat(1, 1, 3)
 
         # Convert to Numpy, so Albumentations can work
         img = img.numpy()

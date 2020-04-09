@@ -87,11 +87,21 @@ class BaseModel(pl.LightningModule):
             else:
                 target_features = None
 
+        # output = OrderedDict({
+        #     'val_loss': loss_val,
+        #     'val_mse': mse,
+        #     'val_psnr': psnr,
+        #     'val_ssim': ssim_score,
+        #     # 'val_ms_ssim': ms_ssim_score,
+        #     'input_features': input_features,
+        #     'target_features': target_features
+        # })
+
         output = OrderedDict({
-            'val_loss': loss_val,
-            'val_mse': mse,
-            'val_psnr': psnr,
-            'val_ssim': ssim_score,
+            'loss': loss_val,
+            'mse': mse,
+            'psnr': psnr,
+            'ssim': ssim_score,
             # 'val_ms_ssim': ms_ssim_score,
             'input_features': input_features,
             'target_features': target_features
@@ -105,7 +115,7 @@ class BaseModel(pl.LightningModule):
         log_dict = {}
 
         # Reduce per-image metrics
-        for metric_name in ["val_loss", "val_mse", "val_psnr", "val_ssim"]: # val_ms_ssim
+        for metric_name in ["loss", "mse", "psnr", "ssim"]: # val_ms_ssim
             metric_total = 0
 
             for output in outputs:
@@ -113,10 +123,9 @@ class BaseModel(pl.LightningModule):
 
                 metric_total += metric_value
 
-            log_dict[metric_name] = metric_total / len(outputs)
+            log_dict["validation/" + metric_name] = metric_total / len(outputs)
 
         # Collect computed image features into a vector of size (val_size, feat_size)
-
         all_input_features = [out["input_features"] for out in outputs]
         input_features = torch.cat(all_input_features, dim=0)
 
@@ -124,17 +133,22 @@ class BaseModel(pl.LightningModule):
             all_target_features = [out["target_features"] for out in outputs]
             self.validation_features = torch.cat(all_target_features, dim=0)
         
+        msid_score = []
+        for _ in range(self.hparams.compute_metrics_repeat):
+            msid_score.append(self.msid(input_features.cpu(), self.validation_features.cpu()))
 
-        msid_score = self.msid(input_features.cpu(), self.validation_features.cpu())
+        msid_score = torch.mean(torch.tensor(msid_score))
         kid_score = self.kid(input_features.cpu(), self.validation_features.cpu())
         fid_score = self.fid(input_features.cpu(), self.validation_features.cpu())
+    
         
-        log_dict["val_msid"] = msid_score
-        log_dict["val_kid"] = kid_score
-        log_dict["val_fid"] = fid_score
+        log_dict["validation/msid"] = torch.tensor(msid_score)
+        log_dict["validation/kid"] = torch.tensor(kid_score)
+        log_dict["validation/fid"] = torch.tensor(fid_score)
 
-        tqdm_dict["val_loss"] = log_dict["val_loss"]
-        result = {'progress_bar': tqdm_dict, 'log': log_dict, 'val_loss': tqdm_dict["val_loss"]}
+        tqdm_dict["val_loss"] = log_dict["validation/loss"]
+
+        result = {'progress_bar': tqdm_dict, 'log': log_dict, 'val_loss': log_dict["validation/loss"]}
         return result
 
     def configure_optimizers(self):

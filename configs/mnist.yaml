@@ -1,17 +1,15 @@
-name : CIFAR100_deblur_lightaug_UNet_L1
+name : mnist_deblur_light_unet_l1
 ## General
 seed : 1
-device : 1 # GPU
-datasets : ["cifar100"]
+device : 3 # GPU
+datasets : ["mnist"]
 data_mean : [0.0, 0.0, 0.0]
 data_std : [1.0, 1.0, 1.0]
 aug_type : "light"
 task : "deblur"
-compute_metrics_repeat : 3
-check_val_every_n_epoch : 5
 
 ## Training parameters
-size : 32
+size : 28
 # arch : "resnet18"
 feature_extractor : "resnet18"
 epochs : 80

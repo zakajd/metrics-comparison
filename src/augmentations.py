@@ -31,7 +31,7 @@ def get_aug(
 
     if task == "deblur":
         TASK_AUG = albu.OneOf([
-            # albu.Blur(),
+            albu.Blur(),
             albu.GaussianBlur(),
             # albu.MotionBlur(),
             # albu.MedianBlur(),
@@ -40,9 +40,9 @@ def get_aug(
     elif task == "denoise":
         TASK_AUG = albu.OneOf([
             albu.GaussNoise(),
-            albu.GlassBlur(),
+            # albu.GlassBlur(),
             albu.ISONoise(),
-            albu.MultiplicativeNoise()
+            # albu.MultiplicativeNoise()
         ], p=1.0)
     else:
         TASK_AUG = albu.NoOp()

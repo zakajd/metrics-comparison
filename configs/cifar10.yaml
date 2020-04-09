@@ -1,21 +1,23 @@
-name : cifar10_denoise_light_unet_l1
+name : CIFAR10_denoise_lightaug_UNet_L1
 ## General
 seed : 1
-device : 3 # GPU
+device : 2 # GPU
 datasets : ["cifar10"]
 data_mean : [0.0, 0.0, 0.0]
 data_std : [1.0, 1.0, 1.0]
 aug_type : "light"
-task : "deblur"
+task : "denoise"
+compute_metrics_repeat : 3
+check_val_every_n_epoch : 5
 
 ## Training parameters
-size : 28
+size : 32
 # arch : "resnet18"
 feature_extractor : "resnet18"
 epochs : 80
 batch_size : 512
 
-lr : 0.003
+lr : 0.001
 momentum : 0.9
 weight-decay : 0.0001
 # model_params : {"num_layers" : 5}

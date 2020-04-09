@@ -12,6 +12,7 @@ def get_parser():
     add_arg = parser.add_argument
 
     add_arg("--name", type=str, default="test", help="Folder name for logs")
+
     # General
     add_arg("--seed", type=int, default=42, help="Random seed for reproducable results")
     add_arg("--device", type=str, default="0", help="Device used for training. Can be `1, 2` or `-1`.")
@@ -25,6 +26,9 @@ def get_parser():
             help="Std used for normalization")
     add_arg("--feature_extractor", type=str, default="resnet18", 
             help="Converts images into low-dimensional representation")
+    add_arg("--check_val_every_n_epoch", type=int, default=5,
+            help="How often to run validation step")
+    add_arg("--compute_metrics_repeat", type=int, default=1)
 
     #  Training parameters
     add_arg('-a', '--arch', metavar='ARCH', default='resnet18', help='model architecture')
