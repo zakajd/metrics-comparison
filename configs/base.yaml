@@ -10,6 +10,7 @@ aug_type : "light"
 task : "denoise"
 compute_metrics_repeat : 3
 check_val_every_n_epoch : 5
+num_images_to_log: 4
 
 ## Training parameters
 size : 32

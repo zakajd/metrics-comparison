@@ -1,4 +1,5 @@
 import os
+import math
 from collections import OrderedDict
 
 
@@ -209,9 +210,13 @@ class BaseModel(pl.LightningModule):
         images, target = self.last_batch
         output = self(images)
 
-        grid_input = torchvision.utils.make_grid(images[:4], nrow=2)
-        grid_target = torchvision.utils.make_grid(target[:4], nrow=2)
-        grid_output = torchvision.utils.make_grid(output[:4], nrow=2)
+        # Upscale images by bilinear interpolation to get the same image size. 
+        if self.hparams.task == "sr":
+            images = F.interpolate(images, target.shape[:-2]), mode="bilinear")
+        N = self.hparams.num_images_to_log
+        grid_input = torchvision.utils.make_grid(images[:N], nrow=int(math.sqrt(N)))
+        grid_target = torchvision.utils.make_grid(target[:N], nrow=int(math.sqrt(N)))
+        grid_output = torchvision.utils.make_grid(output[:N], nrow=int(math.sqrt(N)))
 
         final_image = torch.cat([grid_input, grid_output, grid_target], dim=2)
         self.logger.experiment.add_image(f'Validation mages', final_image, self.current_epoch)

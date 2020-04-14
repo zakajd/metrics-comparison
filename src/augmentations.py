@@ -4,6 +4,26 @@ import albumentations as albu
 import albumentations.pytorch as albu_pt
 
 
+class Downscale(albu.Downscale):
+    """Decreases image quality by downscaling and upscaling back.
+
+    Args:
+        scale_min (float): lower bound on the image scale. Should be < 1.
+        scale_max (float):  lower bound on the image scale. Should be .
+        interpolation: cv2 interpolation method. cv2.INTER_NEAREST by default
+
+    Targets:
+        image
+
+    Image types:
+        uint8, float32
+    """
+
+    def apply(self, image, scale, interpolation, **params):
+        downscaled = cv2.resize(image, None, fx=scale, fy=scale, interpolation=interpolation)
+        return downscaled
+
+
 def get_aug(
     aug_type="val",
     task="denoise",
@@ -47,7 +67,11 @@ def get_aug(
             albu.ISONoise(),
             # albu.MultiplicativeNoise()
         ], p=1.0)
-    elif task == "sr"
+    elif task == "sr":
+        TASK_AUG = albu.OneOf([
+           Downscale(scale_min=0.5, scale_max=0.5)
+        ], p=1.0)
+    else:
         TASK_AUG = albu.NoOp()
 
     VAL_AUG = albu.Compose([

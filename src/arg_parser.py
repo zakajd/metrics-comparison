@@ -29,6 +29,7 @@ def get_parser():
     add_arg("--check_val_every_n_epoch", type=int, default=5,
             help="How often to run validation step")
     add_arg("--compute_metrics_repeat", type=int, default=1)
+    add_arg("--num_images_to_log", type=int, default=4, help="How many images to plot each val epoch"))
 
     #  Training parameters
     add_arg('--model', type=str, default='unet', help='Model name')
