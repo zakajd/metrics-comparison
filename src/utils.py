@@ -1,12 +1,15 @@
+import os
 import random
-import numpy as np
-
+from typing import Tuple, Union
 
 import torch
-import torchaudio
-
+import numpy as np
 
 def set_random_seed(seed):
+    """Fixes all possible seeds
+    Args:
+        seed (int): Seed number
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -14,3 +17,32 @@ def set_random_seed(seed):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
+
+def walk_files(root: str,
+               suffix: Union[str, Tuple[str]],
+               prefix: bool = True,
+               remove_suffix: bool = False) -> str:
+    """List recursively all files ending with a suffix at a given root
+    Args:
+        root (str): Path to directory whose folders need to be listed
+        suffix (str or tuple): Suffix of the files to match, e.g. '.png' or ('.jpg', '.png').
+            It uses the Python "str.endswith" method and is passed directly
+        prefix (bool, optional): If true, prepends the full path to each result, otherwise
+            only returns the name of the files found (Default: ``False``)
+        remove_suffix (bool, optional): If true, removes the suffix to each result defined in suffix,
+            otherwise will return the result as found (Default: ``False``).
+    """
+
+    root = os.path.expanduser(root)
+
+    for dirpath, _, files in os.walk(root):
+        for f in files:
+            if f.endswith(suffix):
+
+                if remove_suffix:
+                    f = f[: -len(suffix)]
+
+                if prefix:
+                    f = os.path.join(dirpath, f)
+
+                yield f

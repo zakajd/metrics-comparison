@@ -7,8 +7,8 @@ import albumentations.pytorch as albu_pt
 def get_aug(
     aug_type="val",
     task="denoise",
-    data_mean=(0.5, 0.5, 0.5),
-    data_std=(0.5, 0.5, 0.5),
+    data_mean=(0.0 , 0.0, 0.0),
+    data_std=(1.0, 1.0, 1.0),
     size=64):
     """
     Args:
@@ -22,17 +22,20 @@ def get_aug(
     assert aug_type in ["val", "test", "light", "medium"]
 
     NORM_TO_TENSOR = albu.Compose([
-        albu.Normalize(mean=data_mean, std=data_std),
-        albu.pytorch.ToTensorV2()
-    ])
+        albu.Normalize(mean=data_mean, std=data_std, max_pixel_value=255.0),
+        albu.pytorch.ToTensorV2()],
+        additional_targets={"mask" : "image"})
 
-#     CROP_AUG = albu.RandomResizedCrop(size, size, scale=(0.05, 0.4))
-    CROP_AUG = albu.NoOp()  # No crops for small datasets
+    CROP_AUG = albu.Compose([
+        albu.PadIfNeeded(size, size),
+        albu.RandomResizedCrop(size, size, scale=(0.5, 1.)),
+    ])
+    # CROP_AUG = albu.NoOp()  # No crops for small datasets
 
     if task == "deblur":
         TASK_AUG = albu.OneOf([
-            albu.Blur(),
-            albu.GaussianBlur(),
+            albu.Blur(blur_limit=(3, 5)),
+            albu.GaussianBlur(blur_limit=(3, 5)),
             # albu.MotionBlur(),
             # albu.MedianBlur(),
             # albu.GlassBlur(),
@@ -48,7 +51,8 @@ def get_aug(
         TASK_AUG = albu.NoOp()
 
     VAL_AUG = albu.Compose([
-        # albu.CenterCrop(size, size),
+        albu.PadIfNeeded(size, size),
+        albu.CenterCrop(size, size),
         NORM_TO_TENSOR,
     ])
 

@@ -1,4 +1,5 @@
 import os
+import glob
 from functools import partial, reduce
 
 
@@ -8,7 +9,9 @@ import torchvision
 from torch.utils.data import Dataset, random_split
 from torch.utils.data import DataLoader
 
+
 from src.augmentations import get_aug
+from src.utils import walk_files
 
 class MNIST(torchvision.datasets.MNIST):
     def __getitem__(self, index):
@@ -29,12 +32,10 @@ class MNIST(torchvision.datasets.MNIST):
         img = img.numpy()
 
         if self.transform is not None:
-            augmented = self.transform(image=img)
-        input = augmented["image"] if self.transform else img
-
-        if self.target_transform is not None:
-            augmented = self.target_transform(image=img)
-        target = augmented["image"] if self.target_transform else img
+            augmented = self.transform(image=img, mask=img)
+            input, target = augmented["image"], augmented["mask"]
+        else:
+            input, target = img, img
 
         return input, target
 
@@ -53,12 +54,10 @@ class CIFAR10(torchvision.datasets.CIFAR10):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         if self.transform is not None:
-            augmented = self.transform(image=img)
-        input = augmented["image"] if self.transform else img
-
-        if self.target_transform is not None:
-            augmented = self.target_transform(image=img)
-        target = augmented["image"] if self.target_transform else img
+            augmented = self.transform(image=img, mask=img)
+            input, target = augmented["image"], augmented["mask"]
+        else:
+            input, target = img, img
 
         return input, target
 
@@ -76,90 +75,184 @@ class CIFAR100(torchvision.datasets.CIFAR100):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         if self.transform is not None:
-            augmented = self.transform(image=img)
-        input = augmented["image"] if self.transform else img
-
-        if self.target_transform is not None:
-            augmented = self.target_transform(image=img)
-        target = augmented["image"] if self.target_transform else img
+            augmented = self.transform(image=img, mask=img)
+            input, target = augmented["image"], augmented["mask"]
+        else:
+            input, target = img, img
 
         return input, target
 
 
-# class TinyImageNet(Dataset):
-#     r"""Tiny ImageNet data set available from `http://cs231n.stanford.edu/tiny-imagenet-200.zip`.
+class Set5(Dataset):
+    """
+    Args:
+        root (str) – Root directory path.
+        train (bool): Flag to return train if True and validation if False
+        transform (callable) – A function/transform that takes in the input and transforms it.
+    """
+    def __init__(
+        self, root="datasets/Set5", train=False, transform=None):
+        assert train == False, "This dataset can be used only for validation"
+        walker = walk_files(
+            root, suffix=".png", prefix=True, remove_suffix=False
+        )
+        
+        self.files = list(walker)
+        self.transform = transform
+        
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
 
-#     Args:
-#         root (str): Root directory including `train`, `test` and `val` subdirectories.
-#         split (str): Indicating which split to return as a data set. In {`train`, `test`, `val`}
-#     transform (torchvision.transforms): A (series) of valid transformation(s).
-#     in_memory (bool): Set to True if there is enough memory (about 5G) and want to minimize disk IO overhead.
-#     """
+        Returns:
+            tuple: (input, target)
+        """
+        # Read image
+        img = cv2.imread(self.files[index], cv2.IMREAD_UNCHANGED)
+        # Covert to RGB and clip to [0., 1.]
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    
+        if self.transform is not None:
+            augmented = self.transform(image=img, mask=img)
+            input, target = augmented["image"], augmented["mask"]
+        else:
+            input, target = img, img
 
-#     _ext = 'JPEG'
-
-#     _class_info = 'wnids.txt'
-#     _class_annotation = 'words.txt'
-#     VAL_ANNOTATION_FILE = 'val_annotations.txt'
+        return input, target
 
 
-#     def __init__(self, root, split='train', transform=None, target_transform=None, in_memory=True):
-#         self.root = os.path.expanduser(root)
-#         self.split = split
-#         self.transform = transform
-#         self.target_transform = target_transform
-#         self.in_memory = in_memory
-#         self.split_dir = os.path.join(root, self.split)
-#         self.image_paths = sorted(glob.iglob(os.path.join(self.split_dir, '**', '*.%s' % EXTENSION), recursive=True))
-#         self.labels = {}  # fname - label number mapping
-#         self.images = []  # used for in-memory processing
+class Set14(Set5):
+    """
+    Args:
+        root (str) – Root directory path.
+        train (bool): Flag to return train if True and validation if False
+        transform (callable) – A function/transform that takes in the input and transforms it.
+    """
+    def __init__(
+        self, root="datasets/Set14", train=False, transform=None):
+        super().__init__(root, train, transform)
 
-#         # build class label - number mapping
-#         with open(os.path.join(self.root, CLASS_LIST_FILE), 'r') as fp:
-#             self.label_texts = sorted([text.strip() for text in fp.readlines()])
-#         self.label_text_to_number = {text: i for i, text in enumerate(self.label_texts)}
 
-#         if self.split == 'train':
-#             for label_text, i in self.label_text_to_number.items():
-#                 for cnt in range(NUM_IMAGES_PER_CLASS):
-#                     self.labels['%s_%d.%s' % (label_text, cnt, EXTENSION)] = i
-#         elif self.split == 'val':
-#             with open(os.path.join(self.split_dir, VAL_ANNOTATION_FILE), 'r') as fp:
-#                 for line in fp.readlines():
-#                     terms = line.split('\t')
-#                     file_name, label_text = terms[0], terms[1]
-#                     self.labels[file_name] = self.label_text_to_number[label_text]
+class Urban100(Set5):
+    """
+    Args:
+        root (str) – Root directory path.
+        train (bool): Flag to return train if True and validation if False
+        transform (callable) – A function/transform that takes in the input and transforms it.
+    """
+    def __init__(
+        self, root="datasets/Urban100", train=False, transform=None
+        ):
+        super().__init__(root, train, transform)
 
-#         # read all images into torch tensor in memory to minimize disk IO overhead
-#         if self.in_memory:
-#             self.images = [self.read_image(path) for path in self.image_paths]
+class Manga109(Set5):
+    """
+    Args:
+        root (str) – Root directory path.
+        train (bool): Flag to return train if True and validation if False
+        transform (callable) – A function/transform that takes in the input and transforms it.
+    """
+    def __init__(
+        self, root="datasets/Manga109", train=False, transform=None
+        ):
+        super().__init__(root, train, transform)
 
-#     def __len__(self):
-#         return len(self.image_paths)
+class DIV2KDataset(Dataset):
+    """
+    Args:
+        root (str) – Root directory path.
+        train (bool): Flag to return train if True and validation if False
+        transform (callable) – A function/transform that takes in the input and transforms it.
+    """
+    def __init__(self, root="datasets", train=True, transform=None):
 
-#     def __getitem__(self, index):
-#         file_path = self.image_paths[index]
+        root += "/DIV2K_"+ ('train' if train else 'valid') + "_LR_bicubic/X2"
+        walker = walk_files(
+            root, suffix=".png", prefix=True, remove_suffix=False
+        )
+        
+        self.files = list(walker)
+        self.transform = transform
+        
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
 
-#         if self.in_memory:
-#             img = self.images[index]
-#         else:
-#             img = self.read_image(file_path)
+        Returns:
+            tuple: (input, target)
+        """
+        # Read image
+        img = cv2.imread(self.files[index], cv2.IMREAD_UNCHANGED)
+        # Covert to RGB and clip to [0., 1.]
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    
+        if self.transform is not None:
+            augmented = self.transform(image=img, mask=img)
+            input, target = augmented["image"], augmented["mask"]
+        else:
+            input, target = img, img
 
-#         if self.split == 'test':
-#             return img
-#         else:
-#             # file_name = file_path.split('/')[-1]
-#             return img, self.labels[os.path.basename(file_path)]
+        return input, target
 
-#     def read_image(self, path):
-#         img = Image.open(path)
-#         return self.transform(img) if self.transform else img
+
+class BSDS100(Set5):
+    """
+    Args:
+        root (str) – Root directory path.
+        train (bool): Flag to return train if True and validation if False
+        transform (callable) – A function/transform that takes in the input and transforms it.
+    """
+    def __init__(
+        self, root="datasets/BSDS100", train=False, transform=None):
+        super().__init__(root, train, transform)
+
+
+class TinyImageNet(Dataset):
+    """Tiny ImageNet data set available from `http://cs231n.stanford.edu/tiny-imagenet-200.zip`.
+
+    Args:
+        root (str) – Root directory path.
+        train (bool): Flag to return train if True and validation if False
+        transform (callable) – A function/transform that takes in the input and transforms it.
+    """
+    def __init__(
+        self, root="datasets/tiny-imagenet-200", train=True, transform=None):
+        
+        root += "/train" if train else "/val"
+        walker = walk_files(
+            root, suffix=".JPEG", prefix=True, remove_suffix=False
+        )
+        
+        self.files = list(walker)
+        self.transform = transform
+        
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (input, target)
+        """
+        # Read image
+        img = cv2.imread(self.files[index], cv2.IMREAD_UNCHANGED)
+        # Covert to RGB and clip to [0., 1.]
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        if self.transform is not None:
+            augmented = self.transform(image=img, mask=img)
+            input, target = augmented["image"], augmented["mask"]
+        else:
+            input, target = img, img
+
+        return input, target
 
 
 def get_dataloader(
     datasets,
     transform=None,
-    target_transform=None,
     batch_size=128,
     train=True,
     train_size=0.8,
@@ -179,20 +272,19 @@ def get_dataloader(
     # Get datasets
     all_datasets = []
     if "mnist" in datasets:
-        dataset = MNIST("datasets/", train, transform, target_transform)
-
-        # train_length=int(len(dataset) * train_size)
-        # val_length=len(dataset) - train_length
-        # train_d, val_d = random_split(dataset, (train_length, val_length))
-
+        dataset = MNIST("datasets/", train, transform)
         all_datasets.append(dataset)
 
     if "cifar10" in datasets:
-        dataset = CIFAR10("datasets/", train, transform, target_transform)
+        dataset = CIFAR10("datasets/", train, transform)
         all_datasets.append(dataset)
 
     if "cifar100" in datasets:
-        dataset = CIFAR100("datasets/", train, transform, target_transform)
+        dataset = CIFAR100("datasets/", train, transform)
+        all_datasets.append(dataset)
+
+    if "tinyimagenet" in datasets:
+        dataset = TinyImageNet("datasets/tiny-imagenet200", )
         all_datasets.append(dataset)
 
     #  Concat all datasets into one
