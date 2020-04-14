@@ -4,6 +4,10 @@ from typing import Tuple, Union
 
 import torch
 import numpy as np
+import photosynthesis_metrics as pm
+
+
+from src.losses import StyleLoss, ContentLoss, PSNR
 
 def set_random_seed(seed):
     """Fixes all possible seeds
@@ -46,3 +50,15 @@ def walk_files(root: str,
                     f = os.path.join(dirpath, f)
 
                 yield f
+
+METRIC_FROM_NAME = {
+    "ssim" : pm.SSIMLoss,
+    "ms-ssim" : pm.MultiScaleSSIMLoss,
+    "msid" : pm.MSID,
+    "fid" : pm.FID,
+    "kid" : pm.KID,
+    "content" : ContentLoss,
+    "style" : StyleLoss,
+    "tv" : pm.TVLoss,
+}
+

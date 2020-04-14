@@ -13,6 +13,7 @@ import photosynthesis_metrics as pm
 from src.augmentations import get_aug
 from src.datasets import get_dataloader
 from src.modules import Identity, MODEL_FROM_NAME
+from src.utils import METRIC_FROM_NAME
 
 
 
@@ -30,16 +31,23 @@ class BaseModel(pl.LightningModule):
         self.feature_extractor.fc = Identity()
 
         self.validation_features = None
-        # self.criterion = torch.nn.MSELoss()
+        self.criterion = torch.nn.MSELoss() 
+        #  F.mse_loss(prediction, target)
 
-        # Per-image metrics
-        # self.ms_ssim = pm.MultiScaleSSIMLoss(kernel_size=3)
-        self.ssim = pm.SSIMLoss(kernel_size=3)
+        # Init per-image metrics
+        self.metric_names = hparams.metrics[::2]
+        self.metrics = (
+            METRIC_FROM_NAME[name](**kwargs) for name, kwargs \
+                in zip(hparams.metrics[::2], hparams.metrics[1::2])
+        )
 
-        # Distribution metrics
-        self.msid = pm.MSID()
-        self.fid = pm.FID()
-        self.kid = pm.KID()
+        # Init feature metrics
+        self.feat_metric_names = hparams.feature_metrics[::2]
+        self.feat_metrics = (
+            METRIC_FROM_NAME[name](**kwargs) for name, kwargs \
+                in zip(hparams.feature_metrics[::2], hparams.feature_metrics[::2])
+        )
+
 
     def forward(self, x):
         return self.model(x)
@@ -49,10 +57,9 @@ class BaseModel(pl.LightningModule):
 
         # Save for logging
         self.last_batch = batch
-
         prediction = self(input)
-        # loss = F.mse_loss(prediction, target)
-        loss = F.l1_loss(prediction, target)
+
+        loss = self.criterion(prediction, target)
 
         tqdm_dict = {'train_loss': loss}
         output = OrderedDict({
@@ -69,13 +76,13 @@ class BaseModel(pl.LightningModule):
 
         with torch.no_grad():
             # loss_val = F.mse_loss(prediction, target)
-            loss_val = F.l1_loss(prediction, target)
+            loss_val = self.criterion(prediction, target)
+
+            output = OrderedDict({'loss': loss_val})
 
             # Compute metrics
-            mse = torch.mean((prediction - target) ** 2)
-            psnr = 20 * torch.log10(1.0 / torch.sqrt(mse))
-            ssim_score = self.ssim(prediction, target, data_range=2.)
-            # ms_ssim_score = self.ms_ssim(prediction, target, data_range=2.)
+            for i, name in enumerate(self.metric_names):
+                output[name] = self.metrics[i](prediction, target)
 
             input_features = self.feature_extractor(input)
 
@@ -84,26 +91,8 @@ class BaseModel(pl.LightningModule):
             else:
                 target_features = None
 
-        # output = OrderedDict({
-        #     'val_loss': loss_val,
-        #     'val_mse': mse,
-        #     'val_psnr': psnr,
-        #     'val_ssim': ssim_score,
-        #     # 'val_ms_ssim': ms_ssim_score,
-        #     'input_features': input_features,
-        #     'target_features': target_features
-        # })
-
-        output = OrderedDict({
-            'loss': loss_val,
-            'mse': mse,
-            'psnr': psnr,
-            'ssim': ssim_score,
-            # 'val_ms_ssim': ms_ssim_score,
-            'input_features': input_features,
-            'target_features': target_features
-        })
-
+        output['input_features'] = input_features
+        output['target_features'] = target_features
         return output
 
     def validation_epoch_end(self, outputs):
@@ -112,7 +101,7 @@ class BaseModel(pl.LightningModule):
         log_dict = {}
 
         # Reduce per-image metrics
-        for metric_name in ["loss", "mse", "psnr", "ssim"]: # val_ms_ssim
+        for metric_name in self.metric_names.append("loss"): # val_ms_ssim
             metric_total = 0
 
             for output in outputs:
@@ -121,6 +110,7 @@ class BaseModel(pl.LightningModule):
                 metric_total += metric_value
 
             log_dict["validation/" + metric_name] = metric_total / len(outputs)
+        self.metric_names.pop() # Remove `loss` from this list
 
         # Collect computed image features into a vector of size (val_size, feat_size)
         all_input_features = [out["input_features"] for out in outputs]
@@ -129,19 +119,22 @@ class BaseModel(pl.LightningModule):
         if self.validation_features is None:
             all_target_features = [out["target_features"] for out in outputs]
             self.validation_features = torch.cat(all_target_features, dim=0)
-        
-        msid_score = []
-        for _ in range(self.hparams.compute_metrics_repeat):
-            msid_score.append(self.msid(input_features.cpu(), self.validation_features.cpu()))
 
-        msid_score = torch.mean(torch.tensor(msid_score))
-        kid_score = self.kid(input_features.cpu(), self.validation_features.cpu())
-        fid_score = self.fid(input_features.cpu(), self.validation_features.cpu())
-    
-        
-        log_dict["validation/msid"] = torch.tensor(msid_score)
-        log_dict["validation/kid"] = torch.tensor(kid_score)
-        log_dict["validation/fid"] = torch.tensor(fid_score)
+        # Compute feature metrics
+        for i, name in enumerate(self.feat_metric_names):
+            score = self.feat_metrics[i](input_features.cpu(), self.validation_features.cpu())
+            log_dict["validation/" + name] = torch.tensor(score)
+
+        if "msid" in self.feat_metric_names:
+            score = []
+            for _ in range(self.hparams.compute_metrics_repeat - 1):
+                score.append(
+                    self.feat_metrics[self.feat_metrics.index("msid")](
+                        input_features.cpu(), 
+                        self.validation_features.cpu()
+                    )
+                )
+            log_dict["validation/msid"] = torch.mean(torch.tensor(score))
 
         tqdm_dict["val_loss"] = log_dict["validation/loss"]
 
@@ -149,17 +142,11 @@ class BaseModel(pl.LightningModule):
         return result
 
     def configure_optimizers(self):
-        # optimizer = torch.optim.SGD(
-        #     self.parameters(),
-        #     lr=self.hparams.lr,
-        #     momentum=self.hparams.momentum,
-        #     weight_decay=self.hparams.weight_decay
-        # )
 
         optimizer = torch.optim.Adam(
             self.parameters(),
             lr=self.hparams.lr,
-            weight_decay=self.hparams.weight_decay
+            weight_decay=self.hparams.weight_decay,   
         )
 
         # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.1)

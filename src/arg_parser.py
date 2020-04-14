@@ -29,7 +29,7 @@ def get_parser():
     add_arg("--check_val_every_n_epoch", type=int, default=5,
             help="How often to run validation step")
     add_arg("--compute_metrics_repeat", type=int, default=1)
-    add_arg("--num_images_to_log", type=int, default=4, help="How many images to plot each val epoch"))
+    add_arg("--num_images_to_log", type=int, default=4, help="How many images to plot each val epoch")
 
     #  Training parameters
     add_arg('--model', type=str, default='unet', help='Model name')
@@ -37,13 +37,14 @@ def get_parser():
     add_arg('--pretrained', dest='pretrained', action='store_true', help='use pre-trained model')
     add_arg('--epochs', default=90, type=int, metavar='N', help='number of total epochs to run')
     add_arg("--batch_size", type=int, default=32, help="Number of images in stack")
-
     add_arg("--size", type=int, default=32, help="Size of image crop")
     add_arg("--lr", type=float, default=0.0001, help="Learning rate")
     add_arg('--momentum', default=0.9, type=float, metavar='M',
             help='momentum')
     add_arg('--wd', '--weight-decay', default=1e-4, type=float,
             metavar='W', help='weight decay', dest='weight_decay')
+    add_arg("--metrics",  type=eval, default=[], help="Image metrics and their parameters")
+    add_arg("--feature_metrics",  type=eval, default=[], help="Feature metrics and their parameters")
 
     return parser
 
