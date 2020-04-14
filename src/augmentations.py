@@ -13,7 +13,7 @@ def get_aug(
     """
     Args:
         aug_type (str): {`val`, `test`, `light`, `medium`}
-        task (str): {"denoise", "deblur"}
+        task (str): {"denoise", "deblur", "sr"}
         data_mean (tuple): Per-channel mean for normalization
         data_std (tuple): Per-channel mean for normalization
         size (int): final size of the crop
@@ -47,7 +47,7 @@ def get_aug(
             albu.ISONoise(),
             # albu.MultiplicativeNoise()
         ], p=1.0)
-    else:
+    elif task == "sr"
         TASK_AUG = albu.NoOp()
 
     VAL_AUG = albu.Compose([

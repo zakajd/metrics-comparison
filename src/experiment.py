@@ -11,23 +11,19 @@ import photosynthesis_metrics as pm
 
 from src.augmentations import get_aug
 from src.datasets import get_dataloader
-from src.modules import Identity, UNet
+from src.modules import Identity, MODEL_FROM_NAME
 
-# pull out resnet names from torchvision models
-MODEL_NAMES = sorted(
-    name for name in torchvision.models.__dict__
-    if name.islower() and not name.startswith("__") and callable(torchvision.models.__dict__[name])
-)
+
 
 class BaseModel(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.hparams = hparams
-        self.model = UNet(in_channels=3)
+        self.model = MODEL_FROM_NAME[hparams.model](**hparams.model_params)
 
         self.feature_extractor = torchvision.models.__dict__[self.hparams.feature_extractor](
-            pretrained=True)
-        self.feature_extractor
+            pretrained=True
+        )
 
         # Hack to get intermidiate features for ResNet model
         self.feature_extractor.fc = Identity()
@@ -213,10 +209,10 @@ class BaseModel(pl.LightningModule):
         images, target = self.last_batch
         output = self(images)
 
-        grid_input = torchvision.utils.make_grid(images[:16], nrow=4)
-        grid_target = torchvision.utils.make_grid(target[:16], nrow=4)
-        grid_output = torchvision.utils.make_grid(output[:16], nrow=4)
+        grid_input = torchvision.utils.make_grid(images[:4], nrow=2)
+        grid_target = torchvision.utils.make_grid(target[:4], nrow=2)
+        grid_output = torchvision.utils.make_grid(output[:4], nrow=2)
 
-        self.logger.experiment.add_image(f'Augmented_images', grid_input, self.current_epoch)
-        self.logger.experiment.add_image(f'Target_images', grid_target, self.current_epoch)
-        self.logger.experiment.add_image(f'Output_images', grid_output, self.current_epoch)
+        final_image = torch.cat([grid_input, grid_output, grid_target], dim=2)
+        self.logger.experiment.add_image(f'Validation mages', final_image, self.current_epoch)
+

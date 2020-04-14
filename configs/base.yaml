@@ -13,7 +13,8 @@ check_val_every_n_epoch : 5
 
 ## Training parameters
 size : 32
-arch : "resnet18"
+model : "unet"
+model_params: {}
 feature_extractor : "resnet18"
 pretrained : False
 epochs : 80

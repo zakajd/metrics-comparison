@@ -10,7 +10,7 @@ task : "deblur"
 
 ## Training parameters
 size : 28
-# arch : "resnet18"
+model : "unet"
 feature_extractor : "resnet18"
 epochs : 80
 batch_size : 512

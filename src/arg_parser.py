@@ -31,16 +31,12 @@ def get_parser():
     add_arg("--compute_metrics_repeat", type=int, default=1)
 
     #  Training parameters
-    add_arg('-a', '--arch', metavar='ARCH', default='resnet18', help='model architecture')
+    add_arg('--model', type=str, default='unet', help='Model name')
+    add_arg("--model_params", type=eval, help="Additional model params as kwargs")
     add_arg('--pretrained', dest='pretrained', action='store_true', help='use pre-trained model')
     add_arg('--epochs', default=90, type=int, metavar='N', help='number of total epochs to run')
     add_arg("--batch_size", type=int, default=32, help="Number of images in stack")
 
-    # add_arg(
-    #     "--model_params",
-    #     type=eval,
-    #     default={"vec_len" : 128},
-    #     help="Additional model params as kwargs")
     add_arg("--size", type=int, default=32, help="Size of image crop")
     add_arg("--lr", type=float, default=0.0001, help="Learning rate")
     add_arg('--momentum', default=0.9, type=float, metavar='M',
