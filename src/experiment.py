@@ -36,18 +36,19 @@ class BaseModel(pl.LightningModule):
 
         # Init per-image metrics
         self.metric_names = hparams.metrics[::2]
-        self.metrics = (
-            METRIC_FROM_NAME[name](**kwargs) for name, kwargs \
-                in zip(hparams.metrics[::2], hparams.metrics[1::2])
-        )
+        self.metrics = [
+            METRIC_FROM_NAME[name](**kwargs) for name, kwargs in zip(hparams.metrics[::2], hparams.metrics[1::2])
+        ]
 
+        print("Metrics", self.metrics)
         # Init feature metrics
         self.feat_metric_names = hparams.feature_metrics[::2]
-        self.feat_metrics = (
-            METRIC_FROM_NAME[name](**kwargs) for name, kwargs \
-                in zip(hparams.feature_metrics[::2], hparams.feature_metrics[::2])
-        )
 
+        print(self.feat_metric_names)
+        self.feat_metrics = [
+            METRIC_FROM_NAME[name](**kwargs) for name, kwargs in zip(hparams.feature_metrics[::2], hparams.feature_metrics[1::2])
+        ]
+        print("Feature metrics", self.feat_metrics)
 
     def forward(self, x):
         return self.model(x)
@@ -101,14 +102,15 @@ class BaseModel(pl.LightningModule):
         log_dict = {}
 
         # Reduce per-image metrics
-        for metric_name in self.metric_names.append("loss"): # val_ms_ssim
+        self.metric_names.append("loss")
+        for metric_name in self.metric_names:
             metric_total = 0
 
             for output in outputs:
                 metric_value = output[metric_name]
-
                 metric_total += metric_value
-
+            if len(outputs) == 0:
+                print(outputs)
             log_dict["validation/" + metric_name] = metric_total / len(outputs)
         self.metric_names.pop() # Remove `loss` from this list
 
@@ -129,7 +131,7 @@ class BaseModel(pl.LightningModule):
             score = []
             for _ in range(self.hparams.compute_metrics_repeat - 1):
                 score.append(
-                    self.feat_metrics[self.feat_metrics.index("msid")](
+                    self.feat_metrics[self.feat_metric_names.index("msid")](
                         input_features.cpu(), 
                         self.validation_features.cpu()
                     )
@@ -149,8 +151,8 @@ class BaseModel(pl.LightningModule):
             weight_decay=self.hparams.weight_decay,   
         )
 
-        # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.1)
-        return [optimizer] #, [scheduler]
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
+        return [optimizer], [scheduler]
 
     def train_dataloader(self):
         # Transforms
@@ -199,12 +201,12 @@ class BaseModel(pl.LightningModule):
 
         # Upscale images by bilinear interpolation to get the same image size. 
         if self.hparams.task == "sr":
-            images = F.interpolate(images, target.shape[:-2]), mode="bilinear")
+            images = F.interpolate(images, target.shape[:-2],  mode="bilinear")
         N = self.hparams.num_images_to_log
         grid_input = torchvision.utils.make_grid(images[:N], nrow=int(math.sqrt(N)))
         grid_target = torchvision.utils.make_grid(target[:N], nrow=int(math.sqrt(N)))
         grid_output = torchvision.utils.make_grid(output[:N], nrow=int(math.sqrt(N)))
 
         final_image = torch.cat([grid_input, grid_output, grid_target], dim=2)
-        self.logger.experiment.add_image(f'Validation mages', final_image, self.current_epoch)
+        self.logger.experiment.add_image(f'Validation_images', final_image, self.current_epoch)
 

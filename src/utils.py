@@ -60,5 +60,6 @@ METRIC_FROM_NAME = {
     "content" : ContentLoss,
     "style" : StyleLoss,
     "tv" : pm.TVLoss,
+    "psnr" : PSNR
 }
 

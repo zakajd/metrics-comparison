@@ -248,6 +248,9 @@ class TinyImageNet(Dataset):
             input, target = img, img
 
         return input, target
+        
+    def __len__(self):
+        return len(self.files)
 
 
 def get_dataloader(

@@ -19,7 +19,7 @@ def get_parser():
     add_arg("--datasets", default=["cifar10"], type=str, nargs="+",
             help="Datasets to use for training. Default is only CIFAR10")
     add_arg("--aug_type", type=str, default="light")
-    add_arg("--task", type=str, default="denoise", choices=["denoise", "deblur"])
+    add_arg("--task", type=str, default="denoise", choices=["denoise", "deblur", "sr"])
     add_arg("--data_mean", type=float, default=[0.5, 0.5, 0.5], nargs=3,
             help="Mean used for normalization")
     add_arg("--data_std", type=float, default=[0.5, 0.5, 0.5], nargs=3,
@@ -34,7 +34,7 @@ def get_parser():
     #  Training parameters
     add_arg('--model', type=str, default='unet', help='Model name')
     add_arg("--model_params", type=eval, help="Additional model params as kwargs")
-    add_arg('--pretrained', dest='pretrained', action='store_true', help='use pre-trained model')
+#     add_arg('--pretrained', dest='pretrained', action='store_true', help='use pre-trained model')
     add_arg('--epochs', default=90, type=int, metavar='N', help='number of total epochs to run')
     add_arg("--batch_size", type=int, default=32, help="Number of images in stack")
     add_arg("--size", type=int, default=32, help="Size of image crop")
@@ -43,8 +43,8 @@ def get_parser():
             help='momentum')
     add_arg('--wd', '--weight-decay', default=1e-4, type=float,
             metavar='W', help='weight decay', dest='weight_decay')
-    add_arg("--metrics",  type=eval, default=[], help="Image metrics and their parameters")
-    add_arg("--feature_metrics",  type=eval, default=[], help="Feature metrics and their parameters")
+    add_arg("--metrics", type=eval, help="Image metrics and their parameters")
+    add_arg("--feature_metrics", type=eval, help="Feature metrics and their parameters")
 
     return parser
 

@@ -8,7 +8,7 @@ import collections
 import torch
 import torch.nn as nn
 from torch.nn.modules.loss import _Loss 
-from torchvision.models import vgg_16
+from torchvision.models import vgg16
 
 
 
@@ -80,7 +80,7 @@ class ContentLoss(_Loss):
             x = module(x)
             if name in self.layers:
                 features.append(x)
-        print(len(features))
+        # print(len(features))
         return features
 
 
@@ -118,7 +118,7 @@ class StyleLoss(_Loss):
         """
         input_features = self.get_features(input)
         style_features = self.get_features(style)
-        print(style_features[0].size(), len(style_features))
+        # print(style_features[0].size(), len(style_features))
 
         input_gram = [self.gram_matrix(x) for x in input_features]
         style_gram = [self.gram_matrix(x) for x in style_features]
@@ -126,7 +126,7 @@ class StyleLoss(_Loss):
         loss = [
             self.criterion(torch.stack(i_g), torch.stack(s_g)) for i_g, s_g in zip(input_gram, style_gram)
         ]
-        return loss
+        return torch.mean(torch.tensor(loss))
 
     def get_features(self, x):
         """
