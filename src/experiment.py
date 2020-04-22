@@ -21,6 +21,7 @@ class BaseModel(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.hparams = hparams
+        hparams.model_params["upsample"] = True if hparams.task == "sr" else False
         self.model = MODEL_FROM_NAME[hparams.model](**hparams.model_params)
 
         self.feature_extractor = torchvision.models.__dict__[self.hparams.feature_extractor](
@@ -162,36 +163,32 @@ class BaseModel(pl.LightningModule):
         )
 
         # Normalize and convert to tensor
-        target_transform = get_aug(
-            "val", None, hp.data_mean, hp.data_std, hp.size
-        )
 
         train_loader = get_dataloader(
+            datasets=hp.datasets,
             train=True,
             transform=transform,
-            target_transform=target_transform,
-            **vars(self.hparams)
+            batch_size=hp.batch_size
         )
 
         return train_loader
 
     def val_dataloader(self):
         hp = self.hparams
+
         # Transforms
         transform = get_aug(
             hp.aug_type, hp.task, hp.data_mean, hp.data_std, hp.size
         )
 
-        # Normalize and convert to tensor
-        target_transform = get_aug(
-            "val", None, hp.data_mean, hp.data_std, hp.size
-        )
+        # # Normalize and convert to tensor
 
         val_loader = get_dataloader(
+            datasets=hp.datasets,
             train=False,
             transform=transform,
-            target_transform=target_transform,
-            **vars(self.hparams)
+            batch_size=hp.batch_size
+
         )
         return val_loader
 
@@ -207,6 +204,11 @@ class BaseModel(pl.LightningModule):
         grid_target = torchvision.utils.make_grid(target[:N], nrow=int(math.sqrt(N)))
         grid_output = torchvision.utils.make_grid(output[:N], nrow=int(math.sqrt(N)))
 
+        # Concat along X axis
         final_image = torch.cat([grid_input, grid_output, grid_target], dim=2)
+        # Change channes 
+        # if final_image.shape[0] == 3:
+            # final_image = 
+
         self.logger.experiment.add_image(f'Validation_images', final_image, self.current_epoch)
 

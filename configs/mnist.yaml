@@ -1,25 +1,25 @@
 
-name : deblur_TinyImegeNet_lightaug_UNet_L2
+name : sr_cifar10_lightaug_DnCNN_L2
 ## General
 seed : 1
-device : 3
-datasets : ['tinyimagenet']
+device : 1
+datasets : ['mnist']
 data_mean : [0.0, 0.0, 0.0]
 data_std : [1., 1., 1.]
 aug_type : 'light'
-task : 'deblur'
+task : 'sr'
 compute_metrics_repeat : 3
-check_val_every_n_epoch : 1
-num_images_to_log: 4
-metrics: "['ssim', {'kernel_size' : 3}, 'psnr', {}, 'tv', {}, 'content', {}, 'style', {}]"
+check_val_every_n_epoch : 2
+num_images_to_log: 16
+metrics: "['ssim', {'kernel_size' : 3}, 'psnr', {}, 'tv', {}, 'content', {'device' : 'cuda:1'}, 'style', {'device' : 'cuda:1'}]"
 feature_metrics: "['kid', {}, 'fid', {}, 'msid', {}]"
 ## Training parameters
-size : 64
-model : 'unet'
+size : 32
+model : 'dncnn'
 model_params: {}
 feature_extractor : 'resnet18'
-epochs : 40
-batch_size : 128
+epochs : 60
+batch_size : 256
 
 lr : 0.0003
 momentum : 0.9

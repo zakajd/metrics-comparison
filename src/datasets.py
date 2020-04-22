@@ -158,16 +158,29 @@ class Manga109(Set5):
         ):
         super().__init__(root, train, transform)
 
-class DIV2KDataset(Dataset):
+class COIL100(Set5):
     """
     Args:
         root (str) – Root directory path.
         train (bool): Flag to return train if True and validation if False
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
-    def __init__(self, root="datasets", train=True, transform=None):
+    def __init__(
+        self, root="datasets/coil-100", train=False, transform=None
+        ):
+        super().__init__(root, train, transform)
 
-        root += "/DIV2K_"+ ('train' if train else 'valid') + "_LR_bicubic/X2"
+
+class DIV2K(Dataset):
+    """
+    Args:
+        root (str) – Root directory path.
+        train (bool): Flag to return train if True and validation if False
+        transform (callable) – A function/transform that takes in the input and transforms it.
+    """
+    def __init__(self, root="datasets/", train=True, transform=None):
+
+        root += "DIV2K_"+ ('train' if train else 'valid') + "_LR_bicubic/X2"
         walker = walk_files(
             root, suffix=".png", prefix=True, remove_suffix=False
         )
@@ -196,6 +209,8 @@ class DIV2KDataset(Dataset):
 
         return input, target
 
+    def __len__(self):
+        return len(self.files)
 
 class BSDS100(Set5):
     """
@@ -287,7 +302,11 @@ def get_dataloader(
         all_datasets.append(dataset)
 
     if "tinyimagenet" in datasets:
-        dataset = TinyImageNet("datasets/tiny-imagenet200", )
+        dataset = TinyImageNet("datasets/tiny-imagenet-200", train, transform)
+        all_datasets.append(dataset)
+
+    if "div2k" in datasets:
+        dataset = DIV2K("datasets/", train, transform)
         all_datasets.append(dataset)
 
     #  Concat all datasets into one

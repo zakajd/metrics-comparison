@@ -33,7 +33,7 @@ def main():
         # auto_lr_find=True,
         gradient_clip_val=0.5,
         check_val_every_n_epoch=hparams.check_val_every_n_epoch, 
-        fast_dev_run=True, # overfit_pct=0.10,
+        fast_dev_run=False, # overfit_pct=0.10,
         max_epochs=hparams.epochs, 
         profiler=profiler,
         weights_summary='top',
