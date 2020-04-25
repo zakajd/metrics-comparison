@@ -51,15 +51,29 @@ def walk_files(root: str,
 
                 yield f
 
+
 METRIC_FROM_NAME = {
-    "ssim" : pm.SSIMLoss,
-    "ms-ssim" : pm.MultiScaleSSIMLoss,
-    "msid" : pm.MSID,
-    "fid" : pm.FID,
-    "kid" : pm.KID,
-    "content" : ContentLoss,
-    "style" : StyleLoss,
-    "tv" : pm.TVLoss,
-    "psnr" : PSNR
+    "ssim": pm.SSIMLoss,
+    "ms-ssim": pm.MultiScaleSSIMLoss,
+    "msid": pm.MSID,
+    "fid": pm.FID,
+    "kid": pm.KID,
+    "content": ContentLoss,
+    "style": StyleLoss,
+    "tv": pm.TVLoss,
+    "psnr": PSNR
 }
 
+#  Try to make all metrics have scale ~10
+METRIC_SCALE_FROM_NAME = {
+    "ssim": 10.,
+    "ms-ssim": 10.,
+    "msid": 3,
+    "fid": 0.1,
+    "kid": 2.,
+    "content": 15.,
+    "style": 1e-4,
+    "tv": 2.,
+    "psnr": 0.3,
+    "loss": 1.  # not used
+}

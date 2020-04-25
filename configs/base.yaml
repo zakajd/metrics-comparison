@@ -4,8 +4,8 @@ name : "test"
 seed : 1
 device : 0 # CPU
 datasets : ["cifar10"]
-data_mean : [0.5, 0.5, 0.5]
-data_std : [0.5, 0.5, 0.5]
+# mean : [0.5, 0.5, 0.5]
+# std : [1., 1., 1.]
 aug_type : "light"
 task : "denoise"
 compute_metrics_repeat : 3
@@ -22,7 +22,7 @@ feature_extractor : "resnet18"
 epochs : 40
 batch_size : 128
 
-lr : 0.0003
+lr : 0.001
 momentum : 0.9
 weight-decay : 0.0001
 # model_params : {"num_layers" : 5}

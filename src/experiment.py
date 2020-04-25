@@ -1,4 +1,4 @@
-import os
+# import os
 import math
 from collections import OrderedDict
 
@@ -7,14 +7,13 @@ import torch
 import torchvision
 import pytorch_lightning as pl
 import torch.nn.functional as F
-import photosynthesis_metrics as pm
+# import photosynthesis_metrics as pm
 
 
 from src.augmentations import get_aug
 from src.datasets import get_dataloader
 from src.modules import Identity, MODEL_FROM_NAME
 from src.utils import METRIC_FROM_NAME
-
 
 
 class BaseModel(pl.LightningModule):
@@ -63,6 +62,8 @@ class BaseModel(pl.LightningModule):
 
         loss = self.criterion(prediction, target)
 
+        try:
+            print(self.current_lr)
         tqdm_dict = {'train_loss': loss}
         output = OrderedDict({
             'progress_bar': tqdm_dict,
@@ -101,6 +102,8 @@ class BaseModel(pl.LightningModule):
 
         tqdm_dict = {}
         log_dict = {}
+        # Same as log_dict but showed all at one plot
+        model_dict = {}
 
         # Reduce per-image metrics
         self.metric_names.append("loss")
@@ -113,7 +116,10 @@ class BaseModel(pl.LightningModule):
             if len(outputs) == 0:
                 print(outputs)
             log_dict["validation/" + metric_name] = metric_total / len(outputs)
-        self.metric_names.pop() # Remove `loss` from this list
+            model_dict[metric_name] = log_dict["validation/" + metric_name]
+
+        self.metric_names.pop()  # Remove `loss` from this list
+        model_dict.pop("loss")
 
         # Collect computed image features into a vector of size (val_size, feat_size)
         all_input_features = [out["input_features"] for out in outputs]
@@ -127,6 +133,7 @@ class BaseModel(pl.LightningModule):
         for i, name in enumerate(self.feat_metric_names):
             score = self.feat_metrics[i](input_features.cpu(), self.validation_features.cpu())
             log_dict["validation/" + name] = torch.tensor(score)
+            model_dict[metric_name] = log_dict["validation/" + metric_name]
 
         if "msid" in self.feat_metric_names:
             score = []
@@ -138,9 +145,11 @@ class BaseModel(pl.LightningModule):
                     )
                 )
             log_dict["validation/msid"] = torch.mean(torch.tensor(score))
+            model_dict["msid"] = log_dict["validation/msid"]
 
         tqdm_dict["val_loss"] = log_dict["validation/loss"]
 
+        self.logger.experiment.add_scalars(f"models/{self.hp.name}", model_dict, self.current_epoche)
         result = {'progress_bar': tqdm_dict, 'log': log_dict, 'val_loss': log_dict["validation/loss"]}
         return result
 
@@ -149,17 +158,21 @@ class BaseModel(pl.LightningModule):
         optimizer = torch.optim.Adam(
             self.parameters(),
             lr=self.hparams.lr,
-            weight_decay=self.hparams.weight_decay,   
+            weight_decay=self.hparams.weight_decay,
+            amsgrad=True
         )
 
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
         return [optimizer], [scheduler]
 
     def train_dataloader(self):
         # Transforms
         hp = self.hparams
         transform = get_aug(
-            hp.aug_type, hp.task, hp.data_mean, hp.data_std, hp.size
+            aug_type=hp.aug_type,
+            task=hp.task,
+            dataset=hp.datasets[0],
+            size=hp.size
         )
 
         # Normalize and convert to tensor
@@ -178,10 +191,13 @@ class BaseModel(pl.LightningModule):
 
         # Transforms
         transform = get_aug(
-            hp.aug_type, hp.task, hp.data_mean, hp.data_std, hp.size
+            aug_type=hp.aug_type,
+            task=hp.task,
+            dataset=hp.datasets[0],
+            size=hp.size
         )
 
-        # # Normalize and convert to tensor
+        # Normalize and convert to tensor
 
         val_loader = get_dataloader(
             datasets=hp.datasets,
@@ -198,17 +214,14 @@ class BaseModel(pl.LightningModule):
 
         # Upscale images by bilinear interpolation to get the same image size. 
         if self.hparams.task == "sr":
-            images = F.interpolate(images, target.shape[:-2],  mode="bilinear")
+            images = F.interpolate(images, size=target.shape[:-2], mode="bilinear")
+
         N = self.hparams.num_images_to_log
-        grid_input = torchvision.utils.make_grid(images[:N], nrow=int(math.sqrt(N)))
-        grid_target = torchvision.utils.make_grid(target[:N], nrow=int(math.sqrt(N)))
-        grid_output = torchvision.utils.make_grid(output[:N], nrow=int(math.sqrt(N)))
+        grid_input = torchvision.utils.make_grid(images[:N], nrow=int(math.sqrt(N)), normalize=True)
+        grid_target = torchvision.utils.make_grid(target[:N], nrow=int(math.sqrt(N)), normalize=True)
+        grid_output = torchvision.utils.make_grid(output[:N], nrow=int(math.sqrt(N)), normalize=True)
 
         # Concat along X axis
         final_image = torch.cat([grid_input, grid_output, grid_target], dim=2)
-        # Change channes 
-        # if final_image.shape[0] == 3:
-            # final_image = 
-
         self.logger.experiment.add_image(f'Validation_images', final_image, self.current_epoch)
 

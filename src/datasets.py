@@ -1,17 +1,19 @@
-import os
-import glob
-from functools import partial, reduce
-
+# import os
+# import glob
+from functools import reduce
 
 import cv2
-import torch
+import h5py
+# import torch
+import numpy as np
 import torchvision
-from torch.utils.data import Dataset, random_split
+from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 
 
-from src.augmentations import get_aug
+# from src.augmentations import get_aug
 from src.utils import walk_files
+
 
 class MNIST(torchvision.datasets.MNIST):
     def __getitem__(self, index):
@@ -24,7 +26,34 @@ class MNIST(torchvision.datasets.MNIST):
                 and input is transformed original image
         """
         img = self.data[index]
-        # Add channels dimension and stack 3 identical tensors 
+        # Add channels dimension and stack 3 identical tensors
+        # Shape (H, W, channels)
+        img = img.unsqueeze(2).repeat(1, 1, 3)
+
+        # Convert to Numpy, so Albumentations can work
+        img = img.numpy()
+
+        if self.transform is not None:
+            augmented = self.transform(image=img, mask=img)
+            input, target = augmented["image"], augmented["mask"]
+        else:
+            input, target = img, img
+
+        return input, target
+
+
+class FashionMNIST(torchvision.datasets.FashionMNIST):
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (input, target) where target is untrasformed original image
+                and input is transformed original image
+        """
+        img = self.data[index]
+        # Add channels dimension and stack 3 identical tensors
         # Shape (H, W, channels)
         img = img.unsqueeze(2).repeat(1, 1, 3)
 
@@ -51,7 +80,7 @@ class CIFAR10(torchvision.datasets.CIFAR10):
                 and input is transformed original image
         """
         img = self.data[index]
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         if self.transform is not None:
             augmented = self.transform(image=img, mask=img)
@@ -72,7 +101,7 @@ class CIFAR100(torchvision.datasets.CIFAR100):
             tuple: (image, target) where target is untrasformed original image.
         """
         img = self.data[index]
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         if self.transform is not None:
             augmented = self.transform(image=img, mask=img)
@@ -92,14 +121,14 @@ class Set5(Dataset):
     """
     def __init__(
         self, root="datasets/Set5", train=False, transform=None):
-        assert train == False, "This dataset can be used only for validation"
+        assert train is False, "This dataset can be used only for validation"
         walker = walk_files(
             root, suffix=".png", prefix=True, remove_suffix=False
         )
-        
+
         self.files = list(walker)
         self.transform = transform
-        
+
     def __getitem__(self, index):
         """
         Args:
@@ -112,7 +141,7 @@ class Set5(Dataset):
         img = cv2.imread(self.files[index], cv2.IMREAD_UNCHANGED)
         # Covert to RGB and clip to [0., 1.]
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    
+
         if self.transform is not None:
             augmented = self.transform(image=img, mask=img)
             input, target = augmented["image"], augmented["mask"]
@@ -142,9 +171,9 @@ class Urban100(Set5):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     def __init__(
-        self, root="datasets/Urban100", train=False, transform=None
-        ):
+        self, root="datasets/Urban100", train=False, transform=None):
         super().__init__(root, train, transform)
+
 
 class Manga109(Set5):
     """
@@ -154,9 +183,9 @@ class Manga109(Set5):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     def __init__(
-        self, root="datasets/Manga109", train=False, transform=None
-        ):
+        self, root="datasets/Manga109", train=False, transform=None):
         super().__init__(root, train, transform)
+
 
 class COIL100(Set5):
     """
@@ -166,8 +195,7 @@ class COIL100(Set5):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     def __init__(
-        self, root="datasets/coil-100", train=False, transform=None
-        ):
+        self, root="datasets/coil-100", train=False, transform=None):
         super().__init__(root, train, transform)
 
 
@@ -180,14 +208,14 @@ class DIV2K(Dataset):
     """
     def __init__(self, root="datasets/", train=True, transform=None):
 
-        root += "DIV2K_"+ ('train' if train else 'valid') + "_LR_bicubic/X2"
+        root += "DIV2K_" + ('train' if train else 'valid') + "_LR_bicubic/X2"
         walker = walk_files(
             root, suffix=".png", prefix=True, remove_suffix=False
         )
-        
+
         self.files = list(walker)
         self.transform = transform
-        
+
     def __getitem__(self, index):
         """
         Args:
@@ -200,7 +228,7 @@ class DIV2K(Dataset):
         img = cv2.imread(self.files[index], cv2.IMREAD_UNCHANGED)
         # Covert to RGB and clip to [0., 1.]
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    
+
         if self.transform is not None:
             augmented = self.transform(image=img, mask=img)
             input, target = augmented["image"], augmented["mask"]
@@ -211,6 +239,7 @@ class DIV2K(Dataset):
 
     def __len__(self):
         return len(self.files)
+
 
 class BSDS100(Set5):
     """
@@ -234,15 +263,15 @@ class TinyImageNet(Dataset):
     """
     def __init__(
         self, root="datasets/tiny-imagenet-200", train=True, transform=None):
-        
+
         root += "/train" if train else "/val"
         walker = walk_files(
             root, suffix=".JPEG", prefix=True, remove_suffix=False
         )
-        
+
         self.files = list(walker)
         self.transform = transform
-        
+
     def __getitem__(self, index):
         """
         Args:
@@ -263,9 +292,49 @@ class TinyImageNet(Dataset):
             input, target = img, img
 
         return input, target
-        
+
     def __len__(self):
         return len(self.files)
+
+
+class MedicalDecathlon(Dataset):
+    """Used to access images from MedicalDecathlon challenge
+    """
+    def __init__(
+        self, data_path="datasets/decathlon", filename="colon.h5", train=True, transform=None):
+        """
+        Args:
+            data_path (str): Path to folder with hp5 datasets
+            filename (str): {`colon`} type of data
+            train (bool): Flag to return train or val dataset
+        """
+
+        # Read all the data into memory
+        with h5py.File(data_path + "/" + filename, "r") as f:
+            if train:
+                # Take each 10th image so that they are not highly correlated
+                self.data = f['imgs_train'][::10]
+            else:
+                # Combine test and validation datasets
+                data_testing = f['imgs_testing'][::10]
+                data_validation = f['imgs_validation'][::10]
+                self.data = np.concatenate((data_validation, data_testing))
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        img = self.data[idx]
+        # Convert (H, W) -> (H, W, 3) for transform
+        img = img.repeat(3, axis=2)
+        if self.transform is not None:
+            augmented = self.transform(image=img, mask=img)
+            input, target = augmented["image"], augmented["mask"]
+        else:
+            input, target = img, img
+
+        return input, target
 
 
 def get_dataloader(
@@ -293,6 +362,10 @@ def get_dataloader(
         dataset = MNIST("datasets/", train, transform)
         all_datasets.append(dataset)
 
+    if "fashion_mnist" in datasets:
+        dataset = FashionMNIST("datasets/", train, transform)
+        all_datasets.append(dataset)
+    
     if "cifar10" in datasets:
         dataset = CIFAR10("datasets/", train, transform)
         all_datasets.append(dataset)

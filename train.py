@@ -27,18 +27,18 @@ def main():
     #     filepath='models/{epoch}-{val_loss:.2f}')
 
     trainer = pl.Trainer(
-        logger=logger, 
-        gpus=hparams.device, 
+        logger=logger,
+        gpus=hparams.device,
         benchmark=True,
         # auto_lr_find=True,
         gradient_clip_val=0.5,
-        check_val_every_n_epoch=hparams.check_val_every_n_epoch, 
-        fast_dev_run=False, # overfit_pct=0.10,
-        max_epochs=hparams.epochs, 
+        check_val_every_n_epoch=hparams.check_val_every_n_epoch,
+        fast_dev_run=False,  # overfit_pct=0.10,
+        max_epochs=hparams.epochs,
         profiler=profiler,
         weights_summary='top',
-        nb_sanity_val_steps=0, # skip start check
-        precision=32, 
+        nb_sanity_val_steps=0,  # skip start check
+        precision=32,
         amp_level='O1',
         # checkpoint_callback=checkpoint_callback
     )

@@ -2,6 +2,7 @@
 import os
 import configargparse as argparse
 
+
 def get_parser():
     parser = argparse.ArgumentParser(
         description="metrics-comparison",
@@ -18,6 +19,10 @@ def get_parser():
     add_arg("--device", type=str, default="0", help="Device used for training. Can be `1, 2` or `-1`.")
     add_arg("--datasets", default=["cifar10"], type=str, nargs="+",
             help="Datasets to use for training. Default is only CIFAR10")
+#     add_arg("--mean", type=float, nargs="+", default=[0.5, 0.5, 0.5],
+#             help="Mean used to normalize data into [-1, 1] or N(0, 1)")
+#     add_arg("--std", type=float, nargs="+", default=[1., 1., 1.],
+#             help="STD used to normalize data into [-1, 1] or N(0, 1)")
     add_arg("--aug_type", type=str, default="light")
     add_arg("--task", type=str, default="denoise", choices=["denoise", "deblur", "sr"])
     add_arg("--data_mean", type=float, default=[0.5, 0.5, 0.5], nargs=3,
@@ -52,7 +57,14 @@ def get_parser():
 def parse_args():
     parser = get_parser()
     args = parser.parse_args()
-    # add timestamp to name and create this run folder
-    # timestamp = get_timestamp()
-    # name = args.name + "_" + timestamp if args.name else timestamp
+
+    # If folder already exist append version number
+    outdir = os.path.join("logs/", args.name)
+    if os.path.exists(outdir):
+        version = 1
+        while os.path.exists(outdir):
+            outdir = os.path.join("logs/", args.name + "_" + str(version))
+            version += 1
+
+    args.outdir = outdir
     return args
