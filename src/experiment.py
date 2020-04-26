@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from src.augmentations import get_aug
 from src.datasets import get_dataloader
 from src.modules import Identity, MODEL_FROM_NAME
-from src.utils import METRIC_FROM_NAME
+from src.utils import METRIC_FROM_NAME, METRIC_SCALE_FROM_NAME
 
 
 class BaseModel(pl.LightningModule):
@@ -62,8 +62,6 @@ class BaseModel(pl.LightningModule):
 
         loss = self.criterion(prediction, target)
 
-        try:
-            print(self.current_lr)
         tqdm_dict = {'train_loss': loss}
         output = OrderedDict({
             'progress_bar': tqdm_dict,
@@ -116,7 +114,7 @@ class BaseModel(pl.LightningModule):
             if len(outputs) == 0:
                 print(outputs)
             log_dict["validation/" + metric_name] = metric_total / len(outputs)
-            model_dict[metric_name] = log_dict["validation/" + metric_name]
+            model_dict[metric_name] = log_dict["validation/" + metric_name] * METRIC_SCALE_FROM_NAME[metric_name]
 
         self.metric_names.pop()  # Remove `loss` from this list
         model_dict.pop("loss")
@@ -133,23 +131,23 @@ class BaseModel(pl.LightningModule):
         for i, name in enumerate(self.feat_metric_names):
             score = self.feat_metrics[i](input_features.cpu(), self.validation_features.cpu())
             log_dict["validation/" + name] = torch.tensor(score)
-            model_dict[metric_name] = log_dict["validation/" + metric_name]
+            model_dict[metric_name] = log_dict["validation/" + metric_name] * METRIC_SCALE_FROM_NAME[metric_name]
 
         if "msid" in self.feat_metric_names:
             score = []
             for _ in range(self.hparams.compute_metrics_repeat - 1):
                 score.append(
                     self.feat_metrics[self.feat_metric_names.index("msid")](
-                        input_features.cpu(), 
+                        input_features.cpu(),
                         self.validation_features.cpu()
                     )
                 )
             log_dict["validation/msid"] = torch.mean(torch.tensor(score))
-            model_dict["msid"] = log_dict["validation/msid"]
+            model_dict["msid"] = log_dict["validation/msid"] * METRIC_SCALE_FROM_NAME["msid"]
 
         tqdm_dict["val_loss"] = log_dict["validation/loss"]
 
-        self.logger.experiment.add_scalars(f"models/{self.hp.name}", model_dict, self.current_epoche)
+        self.logger.experiment.add_scalars(f"models/{self.hparams.name}", model_dict, self.current_epoch)
         result = {'progress_bar': tqdm_dict, 'log': log_dict, 'val_loss': log_dict["validation/loss"]}
         return result
 
@@ -212,9 +210,11 @@ class BaseModel(pl.LightningModule):
         images, target = self.last_batch
         output = self(images)
 
-        # Upscale images by bilinear interpolation to get the same image size. 
+        # Upscale images by bilinear interpolation to get the same image size.
         if self.hparams.task == "sr":
-            images = F.interpolate(images, size=target.shape[:-2], mode="bilinear")
+            print(f"Before interpolation: images {images.shape}, targets {target.shape}, output {output.shape} ")
+            images = F.interpolate(images, size=target.shape[-2:], mode="bilinear")
+            print(f"After interpolation: images {images.shape}, targets {target.shape}, output {output.shape} ")
 
         N = self.hparams.num_images_to_log
         grid_input = torchvision.utils.make_grid(images[:N], nrow=int(math.sqrt(N)), normalize=True)

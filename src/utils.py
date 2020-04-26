@@ -9,6 +9,7 @@ import photosynthesis_metrics as pm
 
 from src.losses import StyleLoss, ContentLoss, PSNR
 
+
 def set_random_seed(seed):
     """Fixes all possible seeds
     Args:
@@ -68,11 +69,11 @@ METRIC_FROM_NAME = {
 METRIC_SCALE_FROM_NAME = {
     "ssim": 10.,
     "ms-ssim": 10.,
-    "msid": 3,
+    "msid": 2.,
     "fid": 0.1,
     "kid": 2.,
     "content": 15.,
-    "style": 1e-4,
+    "style": 1e-5,
     "tv": 2.,
     "psnr": 0.3,
     "loss": 1.  # not used

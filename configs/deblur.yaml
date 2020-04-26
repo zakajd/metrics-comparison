@@ -1,0 +1,17 @@
+
+name : deblur_unet_mnist_L2
+## General
+device : 0
+datasets : [mnist]
+task : deblur
+check_val_every_n_epoch : 3
+num_images_to_log: 16
+metrics: "['ssim', {'kernel_size' : 3}, 'psnr', {}, 'tv', {}, 'content', {}, 'style', {}]"
+feature_metrics: "['kid', {}, 'fid', {}, 'msid', {}]"
+## Training parameters
+size : 32
+model : unet
+feature_extractor : 'resnet18'
+epochs : 60
+batch_size : 512
+

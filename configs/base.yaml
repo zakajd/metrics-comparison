@@ -22,7 +22,7 @@ feature_extractor : "resnet18"
 epochs : 40
 batch_size : 128
 
-lr : 0.001
-momentum : 0.9
-weight-decay : 0.0001
+lr : 1e-3
+# momentum : 0.9
+weight-decay : 1e-4
 # model_params : {"num_layers" : 5}

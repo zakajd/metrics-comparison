@@ -1,5 +1,6 @@
 import cv2
 import torch
+import numpy as np
 import albumentations as albu
 import albumentations.pytorch as albu_pt
 
@@ -24,11 +25,25 @@ class Downscale(albu.Downscale):
         return downscaled
 
 
+class GaussNoiseNoClipping(albu.GaussNoise):
+    """Apply Gaussian noise without clipping to [0, 1] range.
+    """
+    def __init__(self, singlechannel=False, **kwargs):
+        self.singlechannel = singlechannel
+        super().__init__(**kwargs)
+
+    def apply(self, img, gauss=None, **params):
+        if self.singlechannel:
+            return img + gauss[..., 0][..., np.newaxis]
+        else:
+            return img + gauss
+
+
 # Normalize data to [-1, 1] range or somewhere near it
 # name: (mean, std, scale)
 MEAN_STD_BY_NAME = {
     "mnist": ((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), 255.),
-    "fashionmnist": ((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), 255.),
+    "fashion_mnist": ((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), 255.),
     "cifar10": ((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), 255.),
     "cifar100": ((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), 255.),
     "tinyimagenet": ((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), 255.),
@@ -67,7 +82,12 @@ def get_aug(aug_type="val", task="denoise", dataset="cifar100", size=64):
         albu.PadIfNeeded(size, size),
         albu.RandomResizedCrop(size, size, scale=(0.5, 1.)),
     ])
-    # CROP_AUG = albu.NoOp()  # No crops for small datasets
+
+    # Add the same noise for all channels for single-channel images
+    if dataset in ["medicaldecathlon"]:
+        singlechannel = True
+    else:
+        singlechannel = False
 
     if task == "deblur":
         TASK_AUG = albu.OneOf([
@@ -79,9 +99,10 @@ def get_aug(aug_type="val", task="denoise", dataset="cifar100", size=64):
         ], p=1.0)
     elif task == "denoise":
         TASK_AUG = albu.OneOf([
-            albu.GaussNoise(),
+            # albu.GaussNoise(),
+            GaussNoiseNoClipping(singlechannel, var_limit=0.1 if singlechannel else (20., 50.)),
             # albu.GlassBlur(),
-            albu.NoOp() if dataset == "medicaldecathlon" else albu.ISONoise(),
+            # albu.ISONoise(),
             # albu.MultiplicativeNoise()
         ], p=1.0)
     elif task == "sr":

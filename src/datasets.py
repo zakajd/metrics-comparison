@@ -121,12 +121,18 @@ class Set5(Dataset):
     """
     def __init__(
         self, root="datasets/Set5", train=False, transform=None):
-        assert train is False, "This dataset can be used only for validation"
+        # assert train is False, "This dataset can be used only for validation"
         walker = walk_files(
             root, suffix=".png", prefix=True, remove_suffix=False
         )
 
         self.files = list(walker)
+        train_size = int(len(self.files) * 0.85)
+        if train:
+            self.files = self.files[:train_size]
+        else:
+            self.files = self.files[train_size:]
+
         self.transform = transform
 
     def __getitem__(self, index):
@@ -149,6 +155,9 @@ class Set5(Dataset):
             input, target = img, img
 
         return input, target
+
+    def __len__(self):
+        return len(self.files)
 
 
 class Set14(Set5):
@@ -326,8 +335,8 @@ class MedicalDecathlon(Dataset):
 
     def __getitem__(self, idx):
         img = self.data[idx]
-        # Convert (H, W) -> (H, W, 3) for transform
-        img = img.repeat(3, axis=2)
+        # Convert (H, W) -> (H, W, 3) for transform. Cast: float64 -> float32
+        img = img.repeat(3, axis=2).astype(np.float32)
         if self.transform is not None:
             augmented = self.transform(image=img, mask=img)
             input, target = augmented["image"], augmented["mask"]
@@ -382,6 +391,19 @@ def get_dataloader(
         dataset = DIV2K("datasets/", train, transform)
         all_datasets.append(dataset)
 
+    if "coil100" in datasets:
+        dataset = COIL100("datasets/coil-100", train, transform)
+        all_datasets.append(dataset)
+
+    if "bsds100" in datasets:
+        dataset = BSDS100("datasets/BSDS100", train, transform)
+        all_datasets.append(dataset)
+    
+    if "medicaldecathlon" in datasets:
+        dataset = MedicalDecathlon("datasets/decathlon", "colon.h5", train, transform)
+        all_datasets.append(dataset)
+
+
     #  Concat all datasets into one
     all_datasets = reduce(lambda x, y: x + y, all_datasets)
 
@@ -403,3 +425,12 @@ def get_dataloader(
 
     print(f"\nUsing datasets: {datasets}. {'Train' if train else 'Validation'} size: {len(all_datasets)}.")
     return dataloader
+
+
+
+    # "set5"
+    # "set14"
+    # "urban100"
+    # "manga109"
+
+    # "medicaldecathlon"

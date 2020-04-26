@@ -2,7 +2,7 @@ import time
 
 import torch
 import pytorch_lightning as pl
-from pytorch_lightning.profiler import AdvancedProfiler
+# from pytorch_lightning.profiler import AdvancedProfiler
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
@@ -29,7 +29,7 @@ def main():
     trainer = pl.Trainer(
         logger=logger,
         gpus=hparams.device,
-        benchmark=True,
+        benchmark=False,
         # auto_lr_find=True,
         gradient_clip_val=0.5,
         check_val_every_n_epoch=hparams.check_val_every_n_epoch,
