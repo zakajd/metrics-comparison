@@ -425,12 +425,3 @@ def get_dataloader(
 
     print(f"\nUsing datasets: {datasets}. {'Train' if train else 'Validation'} size: {len(all_datasets)}.")
     return dataloader
-
-
-
-    # "set5"
-    # "set14"
-    # "urban100"
-    # "manga109"
-
-    # "medicaldecathlon"

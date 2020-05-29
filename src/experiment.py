@@ -7,32 +7,41 @@ import torch
 import torchvision
 import pytorch_lightning as pl
 import torch.nn.functional as F
-# import photosynthesis_metrics as pm
+import photosynthesis_metrics as pm
 
 
 from src.augmentations import get_aug
 from src.datasets import get_dataloader
-from src.modules import Identity, MODEL_FROM_NAME
-from src.utils import METRIC_FROM_NAME, METRIC_SCALE_FROM_NAME
+from src.models import Identity, MODEL_FROM_NAME
+from src.utils import METRIC_FROM_NAME, METRIC_SCALE_FROM_NAME, SumOfLosses
 
 
 class BaseModel(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.hparams = hparams
-        hparams.model_params["upsample"] = True if hparams.task == "sr" else False
         self.model = MODEL_FROM_NAME[hparams.model](**hparams.model_params)
 
-        self.feature_extractor = torchvision.models.__dict__[self.hparams.feature_extractor](
-            pretrained=True
-        )
+        if "resnet" in self.hparams.feature_extractor:
+            self.feature_extractor = torchvision.models.__dict__[self.hparams.feature_extractor](
+                pretrained=True
+            )
+            # Hack to get intermidiate features for ResNet model
+            self.feature_extractor.fc = Identity()
 
-        # Hack to get intermidiate features for ResNet model
-        self.feature_extractor.fc = Identity()
+        elif "inception" in self.hparams.feature_extractor:
+            self.feature_extractor = pm.feature_extractors.InceptionV3(
+                resize_input=False,
+                normalize_input=False,
+                use_fid_inception=False,)
+        else:
+            raise ValueError("Feature extractor must be ResNet or Inception")
 
+        # Use L1 + MS-SSIM as loss function
         self.validation_features = None
-        self.criterion = torch.nn.MSELoss() 
-        #  F.mse_loss(prediction, target)
+        ms_ssim_loss = WeightedLoss(pm.MultiScaleSSIMLoss(), 1.0)
+
+        self.criterion = SumOfLosses(torch.nn.L1Loss(), ms_ssim_loss)
 
         # Init per-image metrics
         self.metric_names = hparams.metrics[::2]
@@ -43,12 +52,13 @@ class BaseModel(pl.LightningModule):
         print("Metrics", self.metrics)
         # Init feature metrics
         self.feat_metric_names = hparams.feature_metrics[::2]
-
-        print(self.feat_metric_names)
         self.feat_metrics = [
             METRIC_FROM_NAME[name](**kwargs) for name, kwargs in zip(hparams.feature_metrics[::2], hparams.feature_metrics[1::2])
         ]
         print("Feature metrics", self.feat_metrics)
+
+        # Save one specific batch and use it to print validation images
+        self.saved_batch = None
 
     def forward(self, x):
         return self.model(x)
@@ -57,9 +67,7 @@ class BaseModel(pl.LightningModule):
         input, target = batch
 
         # Save for logging
-        self.last_batch = batch
         prediction = self(input)
-
         loss = self.criterion(prediction, target)
 
         tqdm_dict = {'train_loss': loss}
@@ -71,14 +79,18 @@ class BaseModel(pl.LightningModule):
 
         return output
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx, dataloader_idx):
+
+        # Do not validate Set5 dataset. Use it only for visualization
+        if (dataloader_idx == 1) and (self.saved_batch is None):
+            self.saved_batch = batch
+            return None
+    
         input, target = batch
         prediction = self(input)
 
         with torch.no_grad():
-            # loss_val = F.mse_loss(prediction, target)
             loss_val = self.criterion(prediction, target)
-
             output = OrderedDict({'loss': loss_val})
 
             # Compute metrics
@@ -97,9 +109,12 @@ class BaseModel(pl.LightningModule):
         return output
 
     def validation_epoch_end(self, outputs):
+        # Only first validation loader returns metric values
+        outputs = outputs[0]
 
         tqdm_dict = {}
         log_dict = {}
+
         # Same as log_dict but showed all at one plot
         model_dict = {}
 
@@ -117,7 +132,6 @@ class BaseModel(pl.LightningModule):
             model_dict[metric_name] = log_dict["validation/" + metric_name] * METRIC_SCALE_FROM_NAME[metric_name]
 
         self.metric_names.pop()  # Remove `loss` from this list
-        model_dict.pop("loss")
 
         # Collect computed image features into a vector of size (val_size, feat_size)
         all_input_features = [out["input_features"] for out in outputs]
@@ -145,8 +159,10 @@ class BaseModel(pl.LightningModule):
             log_dict["validation/msid"] = torch.mean(torch.tensor(score))
             model_dict["msid"] = log_dict["validation/msid"] * METRIC_SCALE_FROM_NAME["msid"]
 
+        # Remove `loss` from list
+        model_dict.pop("loss")
         tqdm_dict["val_loss"] = log_dict["validation/loss"]
-
+            
         self.logger.experiment.add_scalars(f"models/{self.hparams.name}", model_dict, self.current_epoch)
         result = {'progress_bar': tqdm_dict, 'log': log_dict, 'val_loss': log_dict["validation/loss"]}
         return result
@@ -160,7 +176,8 @@ class BaseModel(pl.LightningModule):
             amsgrad=True
         )
 
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
+        # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
+        scheduler =  torch.optim.lr_scheduler.CosineAnnealing(optimizer, T_max=10, )
         return [optimizer], [scheduler]
 
     def train_dataloader(self):
@@ -169,14 +186,12 @@ class BaseModel(pl.LightningModule):
         transform = get_aug(
             aug_type=hp.aug_type,
             task=hp.task,
-            dataset=hp.datasets[0],
+            dataset=hp.train_dataset,
             size=hp.size
         )
 
-        # Normalize and convert to tensor
-
         train_loader = get_dataloader(
-            datasets=hp.datasets,
+            datasets=hp.train_dataset,
             train=True,
             transform=transform,
             batch_size=hp.batch_size
@@ -187,41 +202,38 @@ class BaseModel(pl.LightningModule):
     def val_dataloader(self):
         hp = self.hparams
 
-        # Transforms
-        transform = get_aug(
-            aug_type=hp.aug_type,
-            task=hp.task,
-            dataset=hp.datasets[0],
-            size=hp.size
-        )
+        # Get loaders for multiple datasets
+        loaders = []
+        for dataset in hp.val_datasets:
+            transforms = get_aug(
+                aug_type="val",
+                task=hp.task,
+                dataset=dataset,
+                size=hp.size
+            )
 
-        # Normalize and convert to tensor
+            val_loader = get_dataloader(
+                datasets=dataset,
+                train=False,
+                transform=transform,
+                batch_size=hp.batch_size
+            )
 
-        val_loader = get_dataloader(
-            datasets=hp.datasets,
-            train=False,
-            transform=transform,
-            batch_size=hp.batch_size
-
-        )
-        return val_loader
+            loaders.append(val_loader)
+        return loaders
 
     def on_epoch_end(self):
-        images, target = self.last_batch
-        output = self(images)
+        # Save images only on validation epochs
+        if (self.current_epoch + 1) % self.check_val_every_n_epoch == 0:
+            images, target = self.saved_batch
+            output = self(images)
 
-        # Upscale images by bilinear interpolation to get the same image size.
-        if self.hparams.task == "sr":
-            print(f"Before interpolation: images {images.shape}, targets {target.shape}, output {output.shape} ")
-            images = F.interpolate(images, size=target.shape[-2:], mode="bilinear")
-            print(f"After interpolation: images {images.shape}, targets {target.shape}, output {output.shape} ")
+            N = self.hparams.num_images_to_log
+            grid_input = torchvision.utils.make_grid(images[:N], nrow=int(math.sqrt(N)), normalize=True)
+            grid_target = torchvision.utils.make_grid(target[:N], nrow=int(math.sqrt(N)), normalize=True)
+            grid_output = torchvision.utils.make_grid(output[:N], nrow=int(math.sqrt(N)), normalize=True)
 
-        N = self.hparams.num_images_to_log
-        grid_input = torchvision.utils.make_grid(images[:N], nrow=int(math.sqrt(N)), normalize=True)
-        grid_target = torchvision.utils.make_grid(target[:N], nrow=int(math.sqrt(N)), normalize=True)
-        grid_output = torchvision.utils.make_grid(output[:N], nrow=int(math.sqrt(N)), normalize=True)
-
-        # Concat along X axis
-        final_image = torch.cat([grid_input, grid_output, grid_target], dim=2)
-        self.logger.experiment.add_image(f'Validation_images', final_image, self.current_epoch)
+            # Concat along X axis
+            final_image = torch.cat([grid_input, grid_output, grid_target], dim=2)
+            self.logger.experiment.add_image(f'Validation_images', final_image, self.current_epoch)
 
