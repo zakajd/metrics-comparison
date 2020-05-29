@@ -1,6 +1,6 @@
 #!/bin/bash
-gpu="0"
-task="deblur"
+gpu="1"
+task="denoise"
 
 for model in "dncnn" "unet"
 do
@@ -25,13 +25,13 @@ do
         size : 256
         model : $model
         feature_extractor : 'inceptionV3'
-        epochs : 40
+        epochs : 60
         batch_size : 16
 
         lr : 3e-4
         weight-decay : 1e-4
         # model_params : {'num_layers' : 5}
-        """ > configs/deblur.yaml
-        CUDA_VISIBLE_DEVICES=${gpu} taskset -c 0-5 python3 train.py -c configs/deblur.yaml
+        """ > configs/sr.yaml
+        CUDA_VISIBLE_DEVICES=${gpu} taskset -c 6-10 python3 train.py -c configs/denoise.yaml
     done
 done

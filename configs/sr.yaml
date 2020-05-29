@@ -1,12 +1,12 @@
 
-        name : deblur_unet_div2k_L1_MS-SSIM
+        name : sr_unet_div2k_L1_MS-SSIM
 
         ## General
         device : 0
         train_dataset : div2k
         val_datasets: [div2k,'set5']
         aug_type : 'medium'
-        task : deblur
+        task : sr
         check_val_every_n_epoch : 2
         metrics: "['ssim', {}, 'ms-ssim', {}, 'psnr', {}, 'content', {}, 'style', {}, 
                     'mse', {}, 'mae', {}, 'gmsd', {}, 'ms-gmsd', {}, 'vif', {}]"
@@ -14,13 +14,13 @@
         #  'gs', {} NOT INCLUDED YET 
 
         ## Training parameters
-        size : 384
+        size : 256
         model : unet
         feature_extractor : 'inceptionV3'
-        epochs : 60
+        epochs : 40
         batch_size : 16
 
-        lr : 1e-3
+        lr : 3e-4
         weight-decay : 1e-4
         # model_params : {'num_layers' : 5}
         

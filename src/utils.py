@@ -107,8 +107,14 @@ METRIC_SCALE_FROM_NAME = {
     "fid": 0.1,
     "kid": 2.,
     "content": 3.,
-    "style": 7e-5,
+    "style": 7e-8,
     "tv": 1.,
     "psnr": 0.3,
+    "mse": 500.,
+    "mae": 100.,
+    "gmsd": 30.,
+    "ms-gmsd": 50.,
+    "vif": 30.,
+    "gs":3.,
     "loss": 1.  # not used
 }

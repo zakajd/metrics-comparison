@@ -121,17 +121,12 @@ class Set5(Dataset):
     """
     def __init__(
             self, root="datasets/Set5", train=False, transform=None):
-        # assert train is False, "This dataset can be used only for validation"
+        assert train is False, "This dataset can be used only for validation"
         walker = walk_files(
             root, suffix=".png", prefix=True, remove_suffix=False
         )
 
         self.files = list(walker)
-        train_size = int(len(self.files) * 0.85)
-        if train:
-            self.files = self.files[:train_size]
-        else:
-            self.files = self.files[train_size:]
 
         self.transform = transform
 
@@ -172,7 +167,7 @@ class Set14(Set5):
         super().__init__(root, train, transform)
 
 
-class Urban100(Set5):
+class Urban100(Dataset):
     """
     Args:
         root (str) – Root directory path.
@@ -181,10 +176,46 @@ class Urban100(Set5):
     """
     def __init__(
             self, root="datasets/Urban100", train=False, transform=None):
-        super().__init__(root, train, transform)
+        walker = walk_files(
+            root, suffix=".png", prefix=True, remove_suffix=False
+        )
+
+        self.files = list(walker)
+        train_size = int(len(self.files) * 0.85)
+
+        if train:
+            self.files = self.files[:train_size]
+        else:
+            self.files = self.files[train_size:]
+
+        self.transform = transform
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (input, target)
+        """
+        # Read image
+        img = cv2.imread(self.files[index], cv2.IMREAD_UNCHANGED)
+        # Covert to RGB and clip to [0., 1.]
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        if self.transform is not None:
+            augmented = self.transform(image=img, mask=img)
+            input, target = augmented["image"], augmented["mask"]
+        else:
+            input, target = img, img
+
+        return input, target
+
+    def __len__(self):
+        return len(self.files)
 
 
-class Manga109(Set5):
+class Manga109(Urban100):
     """
     Args:
         root (str) – Root directory path.
@@ -196,7 +227,7 @@ class Manga109(Set5):
         super().__init__(root, train, transform)
 
 
-class COIL100(Set5):
+class COIL100(Urban100):
     """
     Args:
         root (str) – Root directory path.
@@ -250,7 +281,7 @@ class DIV2K(Dataset):
         return len(self.files)
 
 
-class BSDS100(Set5):
+class BSDS100(Urban100):
     """
     Args:
         root (str) – Root directory path.
@@ -392,6 +423,14 @@ def get_dataloader(datasets, transform=None, batch_size=128,
 
     if "bsds100" in datasets:
         dataset = BSDS100("datasets/BSDS100", train, transform)
+        all_datasets.append(dataset)
+
+    if "set5" in datasets:
+        dataset = Set5("datasets/Set5", train, transform)
+        all_datasets.append(dataset)
+
+    if "set14" in datasets:
+        dataset = Set14("datasets/Set14", train, transform)
         all_datasets.append(dataset)
 
     if "medicaldecathlon" in datasets:

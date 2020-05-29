@@ -60,7 +60,7 @@ def get_aug(aug_type="val", task="denoise", dataset="cifar100", size=64):
     else:
         singlechannel = False
         normalization = albu.Normalize(mean=mean, std=std, max_pixel_value=max_value)
-        noise = albu.GaussNoise()
+        noise = albu.MultiplicativeNoise(multiplier=(0.75, 1.25), per_channel=True, elementwise=True)
 
     NORM_TO_TENSOR = albu.Compose([
         normalization,
@@ -72,6 +72,7 @@ def get_aug(aug_type="val", task="denoise", dataset="cifar100", size=64):
         albu.RandomResizedCrop(size, size, scale=(0.5, 1.)),
     ])
 
+
     if task == "deblur":
         TASK_AUG = albu.OneOf([
             albu.Blur(blur_limit=(3, 5)),
@@ -81,16 +82,24 @@ def get_aug(aug_type="val", task="denoise", dataset="cifar100", size=64):
             # albu.GlassBlur(),
         ], p=1.0)
     elif task == "denoise":
+#         TASK_AUG = noise
         TASK_AUG = albu.OneOf([
-            noise
+            noise,
+            # albu.GaussNoise(),
+            # GaussNoiseNoClipping(singlechannel, var_limit=0.1 if singlechannel else (20., 50.)),
+#             albu.GlassBlur(),
+#             albu.ISONoise(),
+#             albu.MultiplicativeNoise()
         ], p=1.0)
     elif task == "sr":
-        TASK_AUG = albu.Downscale(scale_min=0.5, scale_max=0.5, interpolation=cv2.INTER_NEAREST)
+        TASK_AUG = albu.Downscale(
+            scale_min=0.5, scale_max=0.5, interpolation=cv2.INTER_CUBIC, always_apply=True)
     else:
         raise ValueError("Name of task must be in {'deblur', 'denosie', 'sr'}")
 
     VAL_AUG = albu.Compose([
         albu.PadIfNeeded(size, size),
+        albu.CenterCrop(size, size),
         TASK_AUG,
         NORM_TO_TENSOR,
     ])
@@ -116,3 +125,4 @@ def get_aug(aug_type="val", task="denoise", dataset="cifar100", size=64):
     }
 
     return types[aug_type]
+

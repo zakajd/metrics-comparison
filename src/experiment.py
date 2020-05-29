@@ -30,7 +30,7 @@ class BaseModel(pl.LightningModule):
             self.feature_extractor.fc = Identity()
 
         elif "inception" in self.hparams.feature_extractor:
-            self.feature_extractor = pm.feature_extractors.InceptionV3(
+            self.feature_extractor = pm.feature_extractors.fid_inception.InceptionV3(
                 resize_input=False,
                 normalize_input=False,
                 use_fid_inception=False,)
@@ -80,7 +80,6 @@ class BaseModel(pl.LightningModule):
         return output
 
     def validation_step(self, batch, batch_idx, dataloader_idx):
-
         # Do not validate Set5 dataset. Use it only for visualization
         if (dataloader_idx == 1) and (self.saved_batch is None):
             self.saved_batch = batch
@@ -97,10 +96,10 @@ class BaseModel(pl.LightningModule):
             for i, name in enumerate(self.metric_names):
                 output[name] = self.metrics[i](prediction, target)
 
-            input_features = self.feature_extractor(input)
+            input_features = self.feature_extractor(input)[0].squeeze()
 
             if self.validation_features is None:
-                target_features = self.feature_extractor(target)
+                target_features = self.feature_extractor(target)[0].squeeze()
             else:
                 target_features = None
 
@@ -108,7 +107,8 @@ class BaseModel(pl.LightningModule):
         output['target_features'] = target_features
         return output
 
-    def validation_epoch_end(self, outputs):
+    # def validation_epoch_end(self, outputs):
+    def validation_end(self, outputs):
         # Only first validation loader returns metric values
         outputs = outputs[0]
 
@@ -176,7 +176,8 @@ class BaseModel(pl.LightningModule):
         )
 
         # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealing(optimizer, T_max=10, )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=self.hparams.epochs)
         return [optimizer], [scheduler]
 
     def train_dataloader(self):
@@ -185,12 +186,12 @@ class BaseModel(pl.LightningModule):
         transform = get_aug(
             aug_type=hp.aug_type,
             task=hp.task,
-            dataset=hp.train_dataset,
+            dataset=hp.train_dataset[0],
             size=hp.size
         )
 
         train_loader = get_dataloader(
-            datasets=hp.train_dataset,
+            datasets=hp.train_dataset[0],
             train=True,
             transform=transform,
             batch_size=hp.batch_size
@@ -223,7 +224,7 @@ class BaseModel(pl.LightningModule):
 
     def on_epoch_end(self):
         # Save images only on validation epochs
-        if (self.current_epoch + 1) % self.check_val_every_n_epoch == 0:
+        if (self.current_epoch + 1) % self.hparams.check_val_every_n_epoch == 0:
             images, target = self.saved_batch
             output = self(images)
 
