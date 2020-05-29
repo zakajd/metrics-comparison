@@ -7,9 +7,8 @@ import collections
 
 import torch
 import torch.nn as nn
-from torch.nn.modules.loss import _Loss 
+from torch.nn.modules.loss import _Loss
 from torchvision.models import vgg16
-
 
 
 def listify(p):
@@ -19,12 +18,12 @@ def listify(p):
         p = [p]
     return p
 
+
 class PSNR(_Loss):
     def forward(self, prediction, target):
         mse = torch.mean((prediction - target) ** 2)
         psnr = 20 * torch.log10(1.0 / torch.sqrt(mse))
         return psnr
-
 
 
 class ContentLoss(_Loss):
@@ -98,7 +97,7 @@ class StyleLoss(_Loss):
         device="cuda",
         **args,
     ):
-        super().__init__() 
+        super().__init__()
         self.model = vgg16(pretrained=True, **args)
         self.model.eval().to(device)
 

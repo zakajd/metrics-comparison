@@ -6,14 +6,14 @@ from collections import OrderedDict
 import torch
 import torchvision
 import pytorch_lightning as pl
-import torch.nn.functional as F
+# import torch.nn.functional as F
 import photosynthesis_metrics as pm
 
 
 from src.augmentations import get_aug
 from src.datasets import get_dataloader
 from src.models import Identity, MODEL_FROM_NAME
-from src.utils import METRIC_FROM_NAME, METRIC_SCALE_FROM_NAME, SumOfLosses
+from src.utils import METRIC_FROM_NAME, METRIC_SCALE_FROM_NAME, SumOfLosses, WeightedLoss
 
 
 class BaseModel(pl.LightningModule):
@@ -85,7 +85,7 @@ class BaseModel(pl.LightningModule):
         if (dataloader_idx == 1) and (self.saved_batch is None):
             self.saved_batch = batch
             return None
-    
+
         input, target = batch
         prediction = self(input)
 
@@ -126,8 +126,8 @@ class BaseModel(pl.LightningModule):
             for output in outputs:
                 metric_value = output[metric_name]
                 metric_total += metric_value
-            if len(outputs) == 0:
-                print(outputs)
+
+            # Not the smartest way to do this
             log_dict["validation/" + metric_name] = metric_total / len(outputs)
             model_dict[metric_name] = log_dict["validation/" + metric_name] * METRIC_SCALE_FROM_NAME[metric_name]
 
@@ -162,13 +162,12 @@ class BaseModel(pl.LightningModule):
         # Remove `loss` from list
         model_dict.pop("loss")
         tqdm_dict["val_loss"] = log_dict["validation/loss"]
-            
+
         self.logger.experiment.add_scalars(f"models/{self.hparams.name}", model_dict, self.current_epoch)
         result = {'progress_bar': tqdm_dict, 'log': log_dict, 'val_loss': log_dict["validation/loss"]}
         return result
 
     def configure_optimizers(self):
-
         optimizer = torch.optim.Adam(
             self.parameters(),
             lr=self.hparams.lr,
@@ -177,7 +176,7 @@ class BaseModel(pl.LightningModule):
         )
 
         # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
-        scheduler =  torch.optim.lr_scheduler.CosineAnnealing(optimizer, T_max=10, )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealing(optimizer, T_max=10, )
         return [optimizer], [scheduler]
 
     def train_dataloader(self):
@@ -205,7 +204,7 @@ class BaseModel(pl.LightningModule):
         # Get loaders for multiple datasets
         loaders = []
         for dataset in hp.val_datasets:
-            transforms = get_aug(
+            transform = get_aug(
                 aug_type="val",
                 task=hp.task,
                 dataset=dataset,
@@ -236,4 +235,3 @@ class BaseModel(pl.LightningModule):
             # Concat along X axis
             final_image = torch.cat([grid_input, grid_output, grid_target], dim=2)
             self.logger.experiment.add_image(f'Validation_images', final_image, self.current_epoch)
-

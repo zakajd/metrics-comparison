@@ -3,6 +3,7 @@ import random
 from typing import Tuple, Union
 
 import torch
+from torch.nn.modules.loss import _Loss
 import numpy as np
 import photosynthesis_metrics as pm
 
@@ -23,7 +24,7 @@ def set_random_seed(seed):
     torch.backends.cudnn.deterministic = True
 
 
-class SumOfLosses(Loss):
+class SumOfLosses(_Loss):
     def __init__(self, l1, l2):
         super().__init__()
         self.l1 = l1
@@ -33,7 +34,7 @@ class SumOfLosses(Loss):
         return self.l1(*inputs) + self.l2(*inputs)
 
 
-class WeightedLoss(Loss):
+class WeightedLoss(_Loss):
     """
     Wrapper class around loss function that applies weighted with fixed factor.
     This class helps to balance multiple losses if they have different scales
@@ -45,9 +46,9 @@ class WeightedLoss(Loss):
         self.weight = torch.Tensor([weight])
 
     def forward(self, *inputs):
-        l = self.loss(*inputs)
-        self.weight = self.weight.to(l.device)
-        return l * self.weight[0]
+        loss = self.loss(*inputs)
+        self.weight = self.weight.to(loss.device)
+        return loss * self.weight[0]
 
 
 def walk_files(root: str,
@@ -92,6 +93,10 @@ METRIC_FROM_NAME = {
     "psnr": PSNR,
     "mse": torch.nn.MSELoss,
     "mae": torch.nn.L1Loss,
+    "gmsd": pm.GMSDLoss,
+    "ms-gmsd": pm.MultiScaleGMSDLoss,
+    "vif": pm.VIFLoss,
+    "gs": pm.GS,
 }
 
 #  Try to make all metrics have scale ~10

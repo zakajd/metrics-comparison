@@ -1,14 +1,14 @@
-from collections import OrderedDict
+# from collections import OrderedDict
 
-import numpy as np
-import torch
-import torchvision
-import torch.nn as nn
-import torch.nn.functional as F
-import pytorch_lightning as pl
+# import numpy as np
+# import torch
+# import torchvision
+# import torch.nn as nn
+# import torch.nn.functional as F
+# import pytorch_lightning as pl
 
 
-# def weights_init(m):
+# # def weights_init(m):
 #     classname = m.__class__.__name__
 #     if classname.find("Conv") != -1:
 #         m.weight.data.normal_(0.0, 0.02)
@@ -28,7 +28,7 @@ import pytorch_lightning as pl
 #         # self.discriminator = NLayerDiscriminator()
 
 #         # No transformations for Mel Spectogram for now
-#         transforms = None 
+#         transforms = None
 #         # Waveform -> MelSpectogram
 #         # self.mel = Audio2Mel(**hparams)
 
@@ -78,7 +78,7 @@ import pytorch_lightning as pl
 #             with torch.no_grad():
 #                 _, fake_melspectograms = self.mel(fake_waveforms[..., : wf_length])
 #                 l1_loss = F.l1_loss(fake_melspectograms, melspectograms)
-            
+
 #             disc_fake = self.discriminator(fake_waveforms)
 #             disc_real = self.discriminator(waveforms)
 
@@ -115,7 +115,7 @@ import pytorch_lightning as pl
 
 #                 _, score_fake = disc_fake[:-1], disc_fake[-1]
 #                 _, score_real = disc_real[:-1], disc_real[-1]
-                
+
 #                 # We use LSGAN loss https://arxiv.org/pdf/1611.04076v3.pdf
 #                 d_loss += 0.5 * torch.mean(torch.sum(torch.pow(score_real - 1.0, 2), dim=[1, 2]))
 #                 d_loss += 0.5 * torch.mean(torch.sum(torch.pow(score_fake, 2), dim=[1, 2]))
@@ -141,7 +141,6 @@ import pytorch_lightning as pl
 #     def validation_epoch_end(self, outputs):
 #         val_loss_mean = torch.stack([x['val_loss'] for x in outputs]).mean()
 #         return {'val_loss': val_loss_mean}
-
 
 
 #     def on_epoch_end(self):

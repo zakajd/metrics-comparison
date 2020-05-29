@@ -1,11 +1,10 @@
-import random
-from functools import partial
+# import random
+# from functools import partial
 
 
 import torch
-import torchaudio
 import torch.nn as nn
-import torch.nn.functional as F
+# import torch.nn.functional as F
 
 
 class Identity(nn.Module):
@@ -28,8 +27,8 @@ class UNet(nn.Module):
 
         super(UNet, self).__init__()
 
-        # Upsamle 
-        upsample_module = nn.Upsample(scale_factor=2, mode='bilinear'))
+        # Upsamle
+        upsample_module = nn.Upsample(scale_factor=2, mode='bilinear')
 
         # Layers: enc_conv0, enc_conv1, pool1
         self._block1 = nn.Sequential(
@@ -87,7 +86,7 @@ class UNet(nn.Module):
 
         for m in self.modules():
             if isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight,  mode="fan_out", nonlinearity="relu")
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
                 m.bias.data.zero_()
 
     def forward(self, x):
@@ -114,6 +113,7 @@ class UNet(nn.Module):
 
         # Final activation
         return self._block6(concat1)
+
 
 class DnCNN(nn.Module):
     def __init__(self, num_layers=17, num_features=64):
@@ -145,6 +145,7 @@ class DnCNN(nn.Module):
     def forward(self, x):
         residual = self.layers(x)
         return x - residual
+
 
 MODEL_FROM_NAME = {
     "unet": UNet,

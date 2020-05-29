@@ -1,4 +1,3 @@
-#
 # -*- coding: utf-8 -*-
 #
 # Copyright (c) 2019 Intel Corporation
@@ -60,20 +59,25 @@ parser = argparse.ArgumentParser(
     "files to Numpy data files",
     add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument("--data_path",
-                    default="../../data/decathlon/Task01_BrainTumour/",
-                    help="Path to the raw BraTS datafiles")
-    parser.add_argument("--save_path",
-                    default="../../data/decathlon/",
-                    help="Folder to save Numpy data files")
-    parser.add_argument("--output_filename",
-                    default="decathlon_brats.h5",
-                    help="Name of the output HDF5 file")
-    parser.add_argument("--resize", type=int, default=240,
-                    help="Resize height and width to this size. "
-                    "Original size = 240")
-    parser.add_argument("--split", type=float, default=0.85,
-                    help="Train/test split ratio")
+parser.add_argument(
+    "--data_path",
+    default="../../data/decathlon/Task01_BrainTumour/",
+    help="Path to the raw BraTS datafiles")
+parser.add_argument(
+    "--save_path",
+    default="../../data/decathlon/",
+    help="Folder to save Numpy data files")
+parser.add_argument(
+    "--output_filename",
+    default="decathlon_brats.h5",
+    help="Name of the output HDF5 file")
+parser.add_argument(
+    "--resize", type=int, default=240,
+    help="Resize height and width to this size. "
+    "Original size = 240")
+parser.add_argument(
+    "--split", type=float, default=0.85,
+    help="Train/test split ratio")
 
 args = parser.parse_args()
 
@@ -183,8 +187,7 @@ def preprocess_labels(msk):
     return msk
 
 
-    def convert_raw_data_to_hdf5(trainIdx, validateIdx, testIdx, fileIdx,
-                                filename, dataDir, json_data):
+def convert_raw_data_to_hdf5(trainIdx, validateIdx, testIdx, fileIdx, filename, dataDir, json_data):
     """
     Go through the Decathlon dataset.json file.
     We've already split into training and validation subsets.
@@ -244,17 +247,13 @@ def preprocess_labels(msk):
     img = np.array(nib.load(data_filename).dataobj)
     print("Raw Image shape     = ", img.shape)
     crop_shape = preprocess_inputs(img).shape[1:]
-    print("Cropped Image shape = (?, {}, {}, {})".format(crop_shape[0],
-                                                            crop_shape[1],
-                                                            crop_shape[2]))
+    print(f"Cropped Image shape = (?, {crop_shape[0]}, {crop_shape[1]}, {crop_shape[2]})")
 
     data_filename = os.path.join(dataDir, train_label_files[0])
     msk = np.array(nib.load(data_filename).dataobj)
     print("Raw Masks shape     = ", msk.shape)
     crop_shape = preprocess_labels(msk).shape[1:]
-    print("Cropped Masks shape = (?, {}, {}, {})".format(crop_shape[0],
-                                                            crop_shape[1],
-                                                            crop_shape[2]))
+    print(f"Cropped Masks shape = (?, {crop_shape[0]}, {crop_shape[1]}, {crop_shape[2]})")
 
     # Save training set images
     print("Step 1 of 6. Save training set images.")
@@ -269,14 +268,12 @@ def preprocess_labels(msk):
 
         if first:
             first = False
-            img_train_dset = hdf_file.create_dataset("imgs_train",
-                                                        img.shape,
-                                                        maxshape=(None,
-                                                                img.shape[1],
-                                                                img.shape[2],
-                                                                img.shape[3]),
-                                                        dtype=float,
-                                                        compression="gzip")
+            img_train_dset = hdf_file.create_dataset(
+                "imgs_train",
+                img.shape,
+                maxshape=(None, img.shape[1], img.shape[2], img.shape[3]),
+                dtype=float,
+                compression="gzip")
             img_train_dset[:] = img
         else:
             row = img_train_dset.shape[0]  # Count current dataset rows
@@ -298,14 +295,12 @@ def preprocess_labels(msk):
 
         if first:
             first = False
-            img_validation_dset = hdf_file.create_dataset("imgs_validation",
-                                                            img.shape,
-                                                            maxshape=(None,
-                                                                    img.shape[1],
-                                                                    img.shape[2],
-                                                                    img.shape[3]),
-                                                            dtype=float,
-                                                            compression="gzip")
+            img_validation_dset = hdf_file.create_dataset(
+                "imgs_validation",
+                img.shape,
+                maxshape=(None, img.shape[1], img.shape[2], img.shape[3]),
+                dtype=float,
+                compression="gzip")
             img_validation_dset[:] = img
         else:
             row = img_validation_dset.shape[0]  # Count current dataset rows
@@ -327,14 +322,12 @@ def preprocess_labels(msk):
 
         if first:
             first = False
-            img_testing_dset = hdf_file.create_dataset("imgs_testing",
-                                                        img.shape,
-                                                        maxshape=(None,
-                                                                    img.shape[1],
-                                                                    img.shape[2],
-                                                                    img.shape[3]),
-                                                        dtype=float,
-                                                        compression="gzip")
+            img_testing_dset = hdf_file.create_dataset(
+                "imgs_testing",
+                img.shape,
+                maxshape=(None, img.shape[1], img.shape[2], img.shape[3]),
+                dtype=float,
+                compression="gzip")
             img_testing_dset[:] = img
         else:
             row = img_testing_dset.shape[0]  # Count current dataset rows
@@ -354,14 +347,12 @@ def preprocess_labels(msk):
 
         if first:
             first = False
-            msk_train_dset = hdf_file.create_dataset("msks_train",
-                                                        msk.shape,
-                                                        maxshape=(None,
-                                                                msk.shape[1],
-                                                                msk.shape[2],
-                                                                msk.shape[3]),
-                                                        dtype=float,
-                                                        compression="gzip")
+            msk_train_dset = hdf_file.create_dataset(
+                "msks_train",
+                msk.shape,
+                maxshape=(None, msk.shape[1], msk.shape[2], msk.shape[3]),
+                dtype=float,
+                compression="gzip")
             msk_train_dset[:] = msk
         else:
             row = msk_train_dset.shape[0]  # Count current dataset rows
@@ -383,14 +374,12 @@ def preprocess_labels(msk):
 
         if first:
             first = False
-            msk_validation_dset = hdf_file.create_dataset("msks_validation",
-                                                            msk.shape,
-                                                            maxshape=(None,
-                                                                    msk.shape[1],
-                                                                    msk.shape[2],
-                                                                    msk.shape[3]),
-                                                            dtype=float,
-                                                            compression="gzip")
+            msk_validation_dset = hdf_file.create_dataset(
+                "msks_validation",
+                msk.shape,
+                maxshape=(None, msk.shape[1], msk.shape[2], msk.shape[3]),
+                dtype=float,
+                compression="gzip")
             msk_validation_dset[:] = msk
         else:
             row = msk_validation_dset.shape[0]  # Count current dataset rows
@@ -410,14 +399,12 @@ def preprocess_labels(msk):
 
         if first:
             first = False
-            msk_testing_dset = hdf_file.create_dataset("msks_testing",
-                                                        msk.shape,
-                                                        maxshape=(None,
-                                                                    msk.shape[1],
-                                                                    msk.shape[2],
-                                                                    msk.shape[3]),
-                                                        dtype=float,
-                                                        compression="gzip")
+            msk_testing_dset = hdf_file.create_dataset(
+                "msks_testing",
+                msk.shape,
+                maxshape=(None, msk.shape[1], msk.shape[2], msk.shape[3]),
+                dtype=float,
+                compression="gzip")
             msk_testing_dset[:] = msk
         else:
             row = msk_testing_dset.shape[0]  # Count current dataset rows
@@ -432,8 +419,8 @@ def preprocess_labels(msk):
 
 if __name__ == "__main__":
 
-    print("Converting Decathlon raw Nifti data files to single "
-            "training and validation HDF5 data file.")
+    print("Converting Decathlon raw Nifti data files to single",
+          "training and validation HDF5 data file.")
     print(args)
 
     save_dir = args.save_path
@@ -463,9 +450,9 @@ if __name__ == "__main__":
     try:
         with open(json_filename, "r") as fp:
             experiment_data = json.load(fp)
-    except IOError as e:
-        print("File {} doesn't exist. It should be part of the "
-                "Decathlon directory".format(json_filename))
+    except IOError:
+        print(f"File {json_filename} doesn't exist. It should be part of the ",
+              "Decathlon directory")
 
     # Print information about the Decathlon experiment data
     print("*" * 30)
@@ -500,7 +487,8 @@ if __name__ == "__main__":
     validateList = otherList[randomList >= 0.5]
     testList = otherList[randomList < 0.5]
 
-	convert_raw_data_to_hdf5(trainList, validateList, testList,
-                             experiment_data["training"],
-                             filename, args.data_path,
-                             experiment_data)
+    convert_raw_data_to_hdf5(
+        trainList, validateList, testList,
+        experiment_data["training"],
+        filename, args.data_path,
+        experiment_data)

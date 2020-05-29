@@ -4,7 +4,7 @@ task="deblur"
 
 for model in "dncnn" # "unet"
 do
-    for dataset in "bsds100" "div2k" # "medicaldecathlon"
+    for dataset in "bsds100" # "div2k" # "medicaldecathlon"
     do
         echo """
         name : ${task}_${model}_${dataset}_L1_MS-SSIM
@@ -15,8 +15,10 @@ do
         val_datasets: [$dataset,'set5']
         task : $task
         check_val_every_n_epoch : 2
-        metrics: \"['ssim', {}, 'ms-ssim', {}, 'psnr', {}, 'tv', {}, 'content', {}, 'style', {}]\"
+        metrics: \"['ssim', {}, 'ms-ssim', {}, 'psnr', {}, 'content', {}, 'style', {}, 
+                    'mse', {}, 'mae', {}, 'gmsd', {}, 'ms-gmsd', {}, 'vif', {}]\"
         feature_metrics: \"['kid', {}, 'fid', {}, 'msid', {}]\"
+        #  'gs', {} NOT INCLUDED YET
 
         ## Training parameters
         size : 256

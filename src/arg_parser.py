@@ -17,8 +17,10 @@ def get_parser():
     # General
     add_arg("--seed", type=int, default=42, help="Random seed for reproducable results")
     add_arg("--device", type=str, default="0", help="Device used for training. Can be `1, 2` or `-1`.")
-    add_arg("--datasets", default=["cifar10"], type=str, nargs="+",
-            help="Datasets to use for training. Default is only CIFAR10")
+    add_arg("--train_dataset", default=["cifar10"], type=str, nargs="+",
+            help="Dataset to use for training. Default is CIFAR10")
+    add_arg("--val_datasets", default=["set5"], type=str, nargs="+",
+            help="Datasets to use for validation. Default is only Set5")
 #     add_arg("--mean", type=float, nargs="+", default=[0.5, 0.5, 0.5],
 #             help="Mean used to normalize data into [-1, 1] or N(0, 1)")
 #     add_arg("--std", type=float, nargs="+", default=[1., 1., 1.],
@@ -29,7 +31,7 @@ def get_parser():
             help="Mean used for normalization")
     add_arg("--data_std", type=float, default=[0.5, 0.5, 0.5], nargs=3,
             help="Std used for normalization")
-    add_arg("--feature_extractor", type=str, default="resnet18", 
+    add_arg("--feature_extractor", type=str, default="resnet18",
             help="Converts images into low-dimensional representation")
     add_arg("--check_val_every_n_epoch", type=int, default=5,
             help="How often to run validation step")

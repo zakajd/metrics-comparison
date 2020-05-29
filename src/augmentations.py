@@ -1,5 +1,5 @@
 import cv2
-import torch
+# import torch
 import numpy as np
 import albumentations as albu
 import albumentations.pytorch as albu_pt
@@ -52,8 +52,9 @@ def get_aug(aug_type="val", task="denoise", dataset="cifar100", size=64):
     assert aug_type in ["val", "test", "light", "medium"]
 
     # Add the same noise for all channels for single-channel images
+    mean, std, max_value = MEAN_STD_BY_NAME[dataset]
     if dataset == "medicaldecathlon":
-        singlechannel =  True
+        singlechannel = True
         normalization = albu.NoOp()
         noise = GaussNoiseNoClipping(singlechannel, var_limit=0.1,)
     else:
@@ -61,7 +62,6 @@ def get_aug(aug_type="val", task="denoise", dataset="cifar100", size=64):
         normalization = albu.Normalize(mean=mean, std=std, max_pixel_value=max_value)
         noise = albu.GaussNoise()
 
-    mean, std, max_value = MEAN_STD_BY_NAME[dataset]
     NORM_TO_TENSOR = albu.Compose([
         normalization,
         albu_pt.ToTensorV2()],
@@ -71,7 +71,6 @@ def get_aug(aug_type="val", task="denoise", dataset="cifar100", size=64):
         albu.PadIfNeeded(size, size),
         albu.RandomResizedCrop(size, size, scale=(0.5, 1.)),
     ])
-
 
     if task == "deblur":
         TASK_AUG = albu.OneOf([
@@ -83,11 +82,7 @@ def get_aug(aug_type="val", task="denoise", dataset="cifar100", size=64):
         ], p=1.0)
     elif task == "denoise":
         TASK_AUG = albu.OneOf([
-            # albu.GaussNoise(),
-#             GaussNoiseNoClipping(singlechannel, var_limit=0.1 if singlechannel else (20., 50.)),
-            # albu.GlassBlur(),
-            # albu.ISONoise(),
-            # albu.MultiplicativeNoise()
+            noise
         ], p=1.0)
     elif task == "sr":
         TASK_AUG = albu.Downscale(scale_min=0.5, scale_max=0.5, interpolation=cv2.INTER_NEAREST)
@@ -99,7 +94,6 @@ def get_aug(aug_type="val", task="denoise", dataset="cifar100", size=64):
         TASK_AUG,
         NORM_TO_TENSOR,
     ])
-
 
     LIGHT_AUG = albu.Compose([
         CROP_AUG,

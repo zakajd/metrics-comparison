@@ -1,18 +1,25 @@
 
-name : __bsds100_L2
-## General
-device : 0
-train_datasets : [bsds100]
-val_datasets: [bsds100,'set5']
-task : 
-check_val_every_n_epoch : 3
-num_images_to_log: 4
-metrics: "['ssim', {'kernel_size' : 3},'ms-ssim', {'kernel_size' : 3}, 'psnr', {}, 'tv', {}, 'content', {}, 'style', {}]"
-feature_metrics: "['kid', {}, 'fid', {}, 'msid', {}]"
-## Training parameters
-size : 64
-model : 
-feature_extractor : 'resnet18'
-epochs : 60
-batch_size : 256
+        name : deblur_dncnn_bsds100_L1_MS-SSIM
 
+        ## General
+        device : 0
+        train_dataset : bsds100
+        val_datasets: [bsds100,'set5']
+        task : deblur
+        check_val_every_n_epoch : 2
+        metrics: "['ssim', {}, 'ms-ssim', {}, 'psnr', {}, 'content', {}, 'style', {}, 
+                    'mse', {}, 'mae', {}, 'gmsd', {}, 'ms-gmsd', {}, 'vif', {}]"
+        feature_metrics: "['kid', {}, 'fid', {}, 'msid', {}]"
+        #  'gs', {} NOT INCLUDED YET
+
+        ## Training parameters
+        size : 256
+        model : dncnn
+        feature_extractor : 'inceptionV3'
+        epochs : 60
+        batch_size : 32
+
+        lr : 1e-3
+        weight-decay : 1e-4
+        # model_params : {'num_layers' : 5}
+        
