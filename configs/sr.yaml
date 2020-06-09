@@ -17,7 +17,7 @@
         size : 256
         model : unet
         feature_extractor : 'inceptionV3'
-        epochs : 40
+        epochs : 60
         batch_size : 16
 
         lr : 3e-4

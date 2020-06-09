@@ -1,12 +1,12 @@
 
-        name : deblur_unet_div2k_L1_MS-SSIM
+        name : denoise_unet_div2k_L1_MS-SSIM
 
         ## General
         device : 0
         train_dataset : div2k
         val_datasets: [div2k,'set5']
         aug_type : 'medium'
-        task : deblur
+        task : denoise
         check_val_every_n_epoch : 2
         metrics: "['ssim', {}, 'ms-ssim', {}, 'psnr', {}, 'content', {}, 'style', {}, 
                     'mse', {}, 'mae', {}, 'gmsd', {}, 'ms-gmsd', {}, 'vif', {}]"

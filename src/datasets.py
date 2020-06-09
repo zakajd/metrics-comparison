@@ -120,7 +120,7 @@ class Set5(Dataset):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     def __init__(
-            self, root="datasets/Set5", train=False, transform=None):
+            self, root="data/raw/Set5", train=False, transform=None):
         assert train is False, "This dataset can be used only for validation"
         walker = walk_files(
             root, suffix=".png", prefix=True, remove_suffix=False
@@ -163,7 +163,7 @@ class Set14(Set5):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     def __init__(
-            self, root="datasets/Set14", train=False, transform=None):
+            self, root="data/raw/Set14", train=False, transform=None):
         super().__init__(root, train, transform)
 
 
@@ -175,7 +175,7 @@ class Urban100(Dataset):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     def __init__(
-            self, root="datasets/Urban100", train=False, transform=None):
+            self, root="data/raw/Urban100", train=False, transform=None):
         walker = walk_files(
             root, suffix=".png", prefix=True, remove_suffix=False
         )
@@ -223,7 +223,7 @@ class Manga109(Urban100):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     def __init__(
-            self, root="datasets/Manga109", train=False, transform=None):
+            self, root="data/raw/Manga109", train=False, transform=None):
         super().__init__(root, train, transform)
 
 
@@ -235,7 +235,7 @@ class COIL100(Urban100):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     def __init__(
-            self, root="datasets/coil-100", train=False, transform=None):
+            self, root="data/raw/coil-100", train=False, transform=None):
         super().__init__(root, train, transform)
 
 
@@ -246,9 +246,9 @@ class DIV2K(Dataset):
         train (bool): Flag to return train if True and validation if False
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
-    def __init__(self, root="datasets/", train=True, transform=None):
+    def __init__(self, root="data/raw", train=True, transform=None):
 
-        root += "DIV2K_" + ('train' if train else 'valid') + "_LR_bicubic/X2"
+        root += "/DIV2K_" + ('train' if train else 'valid') + "_LR_bicubic/X2"
         walker = walk_files(
             root, suffix=".png", prefix=True, remove_suffix=False
         )
@@ -289,7 +289,7 @@ class BSDS100(Urban100):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     def __init__(
-            self, root="datasets/BSDS100", train=False, transform=None):
+            self, root="data/raw/BSDS100", train=False, transform=None):
         super().__init__(root, train, transform)
 
 
@@ -302,7 +302,7 @@ class TinyImageNet(Dataset):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     def __init__(
-            self, root="datasets/tiny-imagenet-200", train=True, transform=None):
+            self, root="data/raw/tiny-imagenet-200", train=True, transform=None):
 
         root += "/train" if train else "/val"
         walker = walk_files(
@@ -341,7 +341,7 @@ class MedicalDecathlon(Dataset):
     """Used to access images from MedicalDecathlon challenge
     """
     def __init__(
-            self, data_path="datasets/decathlon", filename="colon.h5", train=True, transform=None):
+            self, data_path="data/raw/decathlon", filename="colon.h5", train=True, transform=None):
         """
         Args:
             data_path (str): Path to folder with hp5 datasets
@@ -394,47 +394,47 @@ def get_dataloader(datasets, transform=None, batch_size=128,
     # Get datasets
     all_datasets = []
     if "mnist" in datasets:
-        dataset = MNIST("datasets/", train, transform)
+        dataset = MNIST("data/raw/", train, transform)
         all_datasets.append(dataset)
 
     if "fashion_mnist" in datasets:
-        dataset = FashionMNIST("datasets/", train, transform)
+        dataset = FashionMNIST("data/raw/", train, transform)
         all_datasets.append(dataset)
 
     if "cifar10" in datasets:
-        dataset = CIFAR10("datasets/", train, transform)
+        dataset = CIFAR10("data/raw/", train, transform)
         all_datasets.append(dataset)
 
     if "cifar100" in datasets:
-        dataset = CIFAR100("datasets/", train, transform)
+        dataset = CIFAR100("data/raw/", train, transform)
         all_datasets.append(dataset)
 
     if "tinyimagenet" in datasets:
-        dataset = TinyImageNet("datasets/tiny-imagenet-200", train, transform)
+        dataset = TinyImageNet("data/raw/tiny-imagenet-200", train, transform)
         all_datasets.append(dataset)
 
     if "div2k" in datasets:
-        dataset = DIV2K("datasets/", train, transform)
+        dataset = DIV2K("data/raw", train, transform)
         all_datasets.append(dataset)
 
     if "coil100" in datasets:
-        dataset = COIL100("datasets/coil-100", train, transform)
+        dataset = COIL100("data/raw/coil-100", train, transform)
         all_datasets.append(dataset)
 
     if "bsds100" in datasets:
-        dataset = BSDS100("datasets/BSDS100", train, transform)
+        dataset = BSDS100("data/raw/BSDS100", train, transform)
         all_datasets.append(dataset)
 
     if "set5" in datasets:
-        dataset = Set5("datasets/Set5", train, transform)
+        dataset = Set5("data/raw/Set5", train, transform)
         all_datasets.append(dataset)
 
     if "set14" in datasets:
-        dataset = Set14("datasets/Set14", train, transform)
+        dataset = Set14("data/raw/Set14", train, transform)
         all_datasets.append(dataset)
 
     if "medicaldecathlon" in datasets:
-        dataset = MedicalDecathlon("datasets/decathlon", "colon.h5", train, transform)
+        dataset = MedicalDecathlon("data/raw/decathlon", "colon.h5", train, transform)
         all_datasets.append(dataset)
 
     #  Concat all datasets into one
