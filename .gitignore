@@ -13,6 +13,6 @@ __pycache__/
 .vscode/
 
 datasets/
-data/
+/data/
 logs/
 models/
