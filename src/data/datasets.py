@@ -4,7 +4,7 @@ from functools import reduce
 
 import cv2
 import h5py
-# import torch
+import torch
 import numpy as np
 import torchvision
 from torch.utils.data import Dataset
@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 
 # from src.augmentations import get_aug
-from src.utils import walk_files
+from src.data.utils import walk_files
 
 
 class MNIST(torchvision.datasets.MNIST):
@@ -375,6 +375,75 @@ class MedicalDecathlon(Dataset):
             input, target = img, img
 
         return input, target
+
+
+class TID2013(torch.utils.data.Dataset):
+    """
+    Total length = 120 (3000 / 25)
+    Args:
+        root (str) – Root directory path.
+        train (bool): Flag to return train if True and validation if False
+        transform (callable) – A function/transform that takes in the input and transforms it.
+        
+    Returns:
+        distorted: 25 images with fixed distortion type and level
+        reference: 25 original images
+    """
+    _filename = "/mos_with_names.txt"
+    
+    def __init__(
+        self, root="data/raw/tid2013", transform=None):
+        
+        reference_walker = walk_files(
+            root + "/reference_images", suffix=(".bmp", ".BMP"), prefix=True, remove_suffix=False
+        )
+        self.reference_files = sorted(list(reference_walker))    
+    
+        # Read file mith MOS and names
+        with open(root + self._filename) as f:
+            lines = f.readlines()
+
+        scores, self.distorted_files = [], []
+        
+        for line in lines:
+            score, name = line.split(' ')
+            scores.append(float(score))
+            self.distorted_files.append(root + "/distorted_images/" + name[:-1])
+        
+        self.scores = np.array(scores)
+        
+        if transform is None:
+            self.transform = albu_pt.ToTensorV2()
+        else:
+            self.transform = transform
+
+    def __getitem__(self, index):
+        step = int(len(self.distorted_files) / len(self.reference_files)) # 120
+        distorted_files = self.distorted_files[index::step]
+        assert len(distorted_files) == len(self.reference_files)
+        
+        distorted_images, reference_images = [], []
+        for i in range(len(distorted_files)):
+            # Load image and ref
+            distorted = cv2.imread(distorted_files[i], cv2.IMREAD_UNCHANGED)
+            distorted = cv2.cvtColor(distorted, cv2.COLOR_BGR2RGB)
+            distorted = self.transform(image=distorted)["image"]
+    
+            reference = cv2.imread(self.reference_files[i], cv2.IMREAD_UNCHANGED)
+            reference = cv2.cvtColor(reference, cv2.COLOR_BGR2RGB)   
+            reference = self.transform(image=reference)["image"]
+        
+            distorted_images.append(distorted)
+            reference_images.append(reference)
+            
+        distorted_images = torch.stack(distorted_images)
+        reference_images = torch.stack(reference_images)
+
+        scores = self.scores[index::step]
+        return distorted_images, reference_images, scores
+
+    def __len__(self):
+        return int(len(self.distorted_files) / len(self.reference_files))
 
 
 def get_dataloader(datasets, transform=None, batch_size=128,

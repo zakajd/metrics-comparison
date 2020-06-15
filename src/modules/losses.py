@@ -32,6 +32,7 @@ class ContentLoss(_Loss):
     Uses pretrained VGG16 model from torchvision by default
     layers: list of VGG layers used to evaluate content loss
     criterion: str in ['mse', 'mae'], reduction method
+    reduction: Type of reduction to use
     """
 
     def __init__(
@@ -40,6 +41,7 @@ class ContentLoss(_Loss):
         weights=1,
         loss="mse",
         device="cuda",
+        reduction="mean",
         **args,
     ):
         super().__init__()
@@ -49,9 +51,9 @@ class ContentLoss(_Loss):
         self.weights = listify(weights)
 
         if loss == "mse":
-            self.criterion = nn.MSELoss()
+            self.criterion = nn.MSELoss(reduction=reduction)
         elif loss == "mae":
-            self.criterion = nn.L1Loss()
+            self.criterion = nn.L1Loss(reduction=reduction)
         else:
             raise KeyError
 
@@ -87,6 +89,7 @@ class StyleLoss(_Loss):
     """
     Class for creating style loss for neural style transfer
     model: str in ['vgg16_bn']
+    reduction: Type of reduction to use
     """
 
     def __init__(
@@ -95,6 +98,7 @@ class StyleLoss(_Loss):
         weights=[0.75, 0.5, 0.2, 0.2, 0.2],
         loss="mse",
         device="cuda",
+        reduction="mean",
         **args,
     ):
         super().__init__()
@@ -105,9 +109,9 @@ class StyleLoss(_Loss):
         self.weights = listify(weights)
 
         if loss == "mse":
-            self.criterion = nn.MSELoss()
+            self.criterion = nn.MSELoss(reduction=reduction)
         elif loss == "mae":
-            self.criterion = nn.L1Loss()
+            self.criterion = nn.L1Loss(reduction=reduction)
         else:
             raise KeyError
 

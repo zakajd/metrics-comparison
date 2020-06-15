@@ -151,3 +151,18 @@ MODEL_FROM_NAME = {
     "unet": UNet,
     "dncnn": DnCNN,
 }
+
+class Regression(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.b1 = nn.Parameter(torch.ones(1))# * 1e-3)
+        self.b2 = nn.Parameter(torch.ones(1)) #* 1e-3)
+        self.b3 = nn.Parameter(torch.ones(1)) # * 1e-3)
+        self.b4 = nn.Parameter(torch.ones(1)) # * 1e-3)
+        self.b5 = nn.Parameter(torch.zeros(1))
+    
+    def forward(self, predicted_scores):
+        adjusted = self.b1 * (0.5 - 1 / (1 + torch.exp(self.b2 * (predicted_scores - self.b3)))) + \
+            predicted_scores * self.b4 + self.b5
+        return adjusted
+

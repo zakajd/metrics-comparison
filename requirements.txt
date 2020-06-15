@@ -4,3 +4,4 @@ numpy >= 1.11.1
 scipy
 matplotlib
 albumentations
+pytest
