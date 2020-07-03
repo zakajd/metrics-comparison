@@ -2,18 +2,142 @@
 # import glob
 from functools import reduce
 
+import os
 import cv2
 import h5py
 import torch
 import numpy as np
+import pandas as pd
 import torchvision
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-
+from torch.utils.data.sampler import Sampler
 
 # from src.augmentations import get_aug
 from src.data.utils import walk_files
 
+class DistortionSampler(Sampler):
+    r"""Samples elements with same distortion type
+
+    Arguments:
+        data_source (Dataset): dataset to sample from
+    """
+
+    def __init__(self, data_source, dist_type=None):
+        self.data_source = data_source
+        if dist_type is not None:
+            self.data_source.df = data_source.df[data_source.df['dist_type'] == dist_type]
+            self.data_source.scores = self.data_source.df['score'].to_numpy()
+        else:
+            self.data_source = data_source
+            
+    def __iter__(self):
+        return iter(range(len(self.data_source)))
+
+    def __len__(self):
+        return len(self.data_source.df)
+
+class TID2013(torch.utils.data.Dataset):
+    """
+    Args:
+        root (str) – Root directory path.
+        train (bool): Flag to return train if True and validation if False
+        transform (callable) – A function/transform that takes in the input and transforms it.
+        
+    Returns:
+        distorted: image with some kind of distortion
+        reference: image without distortions
+        score: MOS score for this pair of images
+    """
+    _filename = "mos_with_names.txt"
+    
+    def __init__(self, root="data/raw/tid2013", transform=None):
+        self.df = pd.read_csv(
+            os.path.join(root, self._filename),
+            sep=' ',
+            names=['score', 'dist_img'],
+            header=None
+        )
+        
+
+        self.df["ref_img"] = self.df["dist_img"].apply(lambda x: (x[:3] + x[-4:]).upper())
+        self.df['dist_type'] = self.df['dist_img'].apply(lambda x: x[4:-4])
+        self.scores = self.df['score'].to_numpy()
+        self.root = root
+        
+        if transform is None:
+            self.transform = albu_pt.ToTensorV2()
+        else:
+            self.transform = transform
+
+    def __getitem__(self, index):
+        distorted_path = os.path.join(self.root, "distorted_images", self.df.iloc[index][1])
+        reference_path = os.path.join(self.root, "reference_images", self.df.iloc[index][2])
+        score = self.scores[index]
+        
+        # Load image and ref
+        distorted = cv2.imread(distorted_path, cv2.IMREAD_UNCHANGED)
+        distorted = cv2.cvtColor(distorted, cv2.COLOR_BGR2RGB)
+        distorted = self.transform(image=distorted)["image"]
+
+        reference = cv2.imread(reference_path, cv2.IMREAD_UNCHANGED)
+        reference = cv2.cvtColor(reference, cv2.COLOR_BGR2RGB)   
+        reference = self.transform(image=reference)["image"]
+        
+        return distorted, reference, score
+
+    def __len__(self):
+        return len(self.df)
+
+
+class KADID10k(torch.utils.data.Dataset):
+    """
+    Total length = 
+    Args:
+        root (str) – Root directory path.
+        train (bool): Flag to return train if True and validation if False
+        transform (callable) – A function/transform that takes in the input and transforms it.
+        
+    Returns:
+        distorted: 25 images with fixed distortion type and level
+        reference: 25 original images
+    """
+    _filename = "dmos.csv"
+    
+    def __init__(
+        self, root="data/raw/kadid10k", transform=None):
+        
+        self.images_root = os.path.join(root, "images")
+    
+        # Read file mith DMOS and names
+        self.df = pd.read_csv(os.path.join(root, self._filename))
+        self.df.rename(columns={"dmos": "score"}, inplace=True)
+        self.scores = self.df["score"].to_numpy()
+        self.df['dist_type'] = self.df['dist_img'].apply(lambda x: x[4:-4])
+        
+        if transform is None:
+            self.transform = albu_pt.ToTensorV2()
+        else:
+            self.transform = transform
+
+    def __getitem__(self, index):
+        distorted_path = os.path.join(self.images_root, self.df.iloc[index][0])
+        reference_path = os.path.join(self.images_root, self.df.iloc[index][1])
+        score = self.scores[index]
+        
+        # Load image and ref
+        distorted = cv2.imread(distorted_path, cv2.IMREAD_UNCHANGED)
+        distorted = cv2.cvtColor(distorted, cv2.COLOR_BGR2RGB)
+        distorted = self.transform(image=distorted)["image"]
+
+        reference = cv2.imread(reference_path, cv2.IMREAD_UNCHANGED)
+        reference = cv2.cvtColor(reference, cv2.COLOR_BGR2RGB)   
+        reference = self.transform(image=reference)["image"]
+        
+        return distorted, reference, score
+    
+    def __len__(self):
+        return len(self.df)
 
 class MNIST(torchvision.datasets.MNIST):
     def __getitem__(self, index):
@@ -376,74 +500,6 @@ class MedicalDecathlon(Dataset):
 
         return input, target
 
-
-class TID2013(torch.utils.data.Dataset):
-    """
-    Total length = 120 (3000 / 25)
-    Args:
-        root (str) – Root directory path.
-        train (bool): Flag to return train if True and validation if False
-        transform (callable) – A function/transform that takes in the input and transforms it.
-        
-    Returns:
-        distorted: 25 images with fixed distortion type and level
-        reference: 25 original images
-    """
-    _filename = "/mos_with_names.txt"
-    
-    def __init__(
-        self, root="data/raw/tid2013", transform=None):
-        
-        reference_walker = walk_files(
-            root + "/reference_images", suffix=(".bmp", ".BMP"), prefix=True, remove_suffix=False
-        )
-        self.reference_files = sorted(list(reference_walker))    
-    
-        # Read file mith MOS and names
-        with open(root + self._filename) as f:
-            lines = f.readlines()
-
-        scores, self.distorted_files = [], []
-        
-        for line in lines:
-            score, name = line.split(' ')
-            scores.append(float(score))
-            self.distorted_files.append(root + "/distorted_images/" + name[:-1])
-        
-        self.scores = np.array(scores)
-        
-        if transform is None:
-            self.transform = albu_pt.ToTensorV2()
-        else:
-            self.transform = transform
-
-    def __getitem__(self, index):
-        step = int(len(self.distorted_files) / len(self.reference_files)) # 120
-        distorted_files = self.distorted_files[index::step]
-        assert len(distorted_files) == len(self.reference_files)
-        
-        distorted_images, reference_images = [], []
-        for i in range(len(distorted_files)):
-            # Load image and ref
-            distorted = cv2.imread(distorted_files[i], cv2.IMREAD_UNCHANGED)
-            distorted = cv2.cvtColor(distorted, cv2.COLOR_BGR2RGB)
-            distorted = self.transform(image=distorted)["image"]
-    
-            reference = cv2.imread(self.reference_files[i], cv2.IMREAD_UNCHANGED)
-            reference = cv2.cvtColor(reference, cv2.COLOR_BGR2RGB)   
-            reference = self.transform(image=reference)["image"]
-        
-            distorted_images.append(distorted)
-            reference_images.append(reference)
-            
-        distorted_images = torch.stack(distorted_images)
-        reference_images = torch.stack(reference_images)
-
-        scores = self.scores[index::step]
-        return distorted_images, reference_images, scores
-
-    def __len__(self):
-        return int(len(self.distorted_files) / len(self.reference_files))
 
 
 def get_dataloader(datasets, transform=None, batch_size=128,
