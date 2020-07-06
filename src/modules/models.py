@@ -155,10 +155,10 @@ MODEL_FROM_NAME = {
 class Regression(nn.Module):
     def __init__(self):
         super().__init__()
-        self.b1 = nn.Parameter(torch.ones(1))# * 1e-3)
-        self.b2 = nn.Parameter(torch.ones(1)) #* 1e-3)
-        self.b3 = nn.Parameter(torch.ones(1)) # * 1e-3)
-        self.b4 = nn.Parameter(torch.ones(1)) # * 1e-3)
+        self.b1 = nn.Parameter(torch.ones(1) * 1e-3)
+        self.b2 = nn.Parameter(torch.ones(1) * 1e-3)
+        self.b3 = nn.Parameter(torch.ones(1) * 1e-3)
+        self.b4 = nn.Parameter(torch.ones(1) * 1e-3)
         self.b5 = nn.Parameter(torch.zeros(1))
     
     def forward(self, predicted_scores):
