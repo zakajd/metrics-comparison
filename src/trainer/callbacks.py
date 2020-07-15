@@ -303,6 +303,76 @@ class TensorBoard(Callback):
         self.writer.close()
 
 
+class CheckpointSaver(Callback):
+    """
+    Save best GENERATOR model every epoch based on loss
+    Args:
+        save_dir: path to folder where to save the model
+        save_name: name of the saved model. can additionally
+            add epoch and metric to model save name
+        monitor: quantity to monitor. Implicitly prefers validation metrics over train. One of:
+            `loss` or name of any metric passed to the runner.
+        minimize: Whether to decide to save based on minimizing or maximizing value.
+        include_optimizer: if True would also save `optimizers` state_dict.
+            This increases checkpoint size 2x times.
+        verbose (bool): If `True` reports each time new best is found
+    """
+
+    def __init__(
+        self,
+        save_dir: str,
+        save_name="model_{monitor}_{ep}_{metric:.2f}.chpn",
+        monitor:str = "loss",
+        minimize: bool = True,
+        include_optimizer: bool = False,
+        verbose=True,
+    ):
+        super().__init__()
+        self.save_dir = save_dir
+        self.save_name = save_name
+        self.monitor = monitor
+
+        if miminize:
+            self.best = np.inf
+            self.monitor_op = np.less
+        else:
+            self.best = -np.inf
+            self.monitor_op = np.greater
+        self.include_optimizer = include_optimizer
+        self.verbose = verbose
+
+    def on_begin(self):
+        os.makedirs(self.save_dir, exist_ok=True)
+
+    def on_epoch_end(self):
+        current = self.get_monitor_value()
+        if self.monitor_op(current, self.best):
+            ep = self.state.epoch_log
+            if self.verbose:
+                print(f"Epoch {ep:2d}: best {self.monitor} improved from {self.best:.4f} to {current:.4f}")
+            self.best = current
+            save_name = os.path.join(self.save_dir, self.save_name.format(ep=ep, metric=current))
+            self._save_checkpoint(save_name)
+
+    def _save_checkpoint(self, path):
+        save_dict = {"epoch": self.state.epoch}
+        for key in NAMES:
+            save_dict[key] = self.state.models[key].state_dict()
+            if self.include_optimizer:
+                save_dict[f"{key}_optimizer"] = self.state.optimizers[key].state_dict()
+        torch.save(save_dict, path)
+
+    def get_monitor_value(self):
+        value = None
+        if self.monitor == "loss":
+            value = self.state.loss_meter["generator"].avg
+        else:
+            for metric_meter in self.state.metric_meters["generator"]:
+                if metric_meter.name == self.monitor:
+                    value = metric_meter.avg
+        if value is None:
+            raise ValueError(f"CheckpointSaver can't find {self.monitor} value to monitor")
+        return value
 
 # class FileLogger(Callback):
 #     """Logs loss and metrics every epoch into file.
