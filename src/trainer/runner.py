@@ -64,25 +64,25 @@ class GANTrainer:
             self.state.is_train = True
             self.state.epoch = epoch
             self.callbacks.on_epoch_begin()
-            self.state.model.train()
-            self.state.model_disc.train()
+            for key in NAMES:
+                self.state.model[key].train()
             self._run_loader(train_loader, steps=steps_per_epoch)
-            self.state.train_loss = copy(self.state.loss_meter)
-            self.state.train_loss_disc = copy(self.state.loss_meter_disc)
-            self.state.train_metrics = [copy(m) for m in self.state.metric_meters]
+            for key in NAMES:
+                self.state.train_loss[key] = copy(self.state.loss_meter[key])
+                self.state.train_metrics[key] = [copy(m) for m in self.state.metric_meters[key]]
 
             if val_loader is not None:
                 self.evaluate(val_loader, steps=val_steps)
-                self.state.val_loss = copy(self.state.loss_meter)
-                self.state.val_loss_disc = copy(self.state.loss_meter_disc)
-                self.state.val_metrics = [copy(m) for m in self.state.metric_meters]
+                for key in NAMES:
+                    self.state.val_loss[key] = copy(self.state.loss_meter[key])
+                    self.state.val_metrics[key] = [copy(m) for m in self.state.metric_meters[key]]
             self.callbacks.on_epoch_end()
         self.callbacks.on_end()
 
     def evaluate(self, loader, steps=None):
         self.state.is_train = False
-        self.state.model.eval()
-        self.state.model_disc.eval()
+        for key in NAMES:
+            self.state.model[key].eval()
         self._run_loader(loader, steps=steps)
         return self.state.loss_meter.avg, [m.avg for m in self.state.metric_meters]
 
