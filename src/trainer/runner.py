@@ -98,8 +98,8 @@ class GANTrainer:
         self.state.output["discriminator"] = [fake_output, real_output]
 
         loss = {
-            "generator": self.state.criterions["generator"](fake_logits, real_logits)
-            "discriminator": self.state.criterions["discriminator"](fake_logits, real_logits),
+            "generator": self.state.criterions["generator"](output, target, fake_logits, real_logits)
+            "discriminator": self.state.criterions["discriminator"](output, target, fake_logits, real_logits),
         }
         if self.state.is_train:
             # ---------- TRAIN GENERATOR --------------
