@@ -19,144 +19,93 @@ def listify(p):
     return p
 
 
-class PSNR(_Loss):
-    def forward(self, prediction, target):
-        mse = torch.mean((prediction - target) ** 2)
-        psnr = 20 * torch.log10(1.0 / torch.sqrt(mse))
-        return psnr
-
-
-class ContentLoss(_Loss):
+class GeneratorWGAN(nn.Module):
+    r"""Compute loss for Generator model using equation for WGAN-GP
+    Add additional regularization by adding MSE loss
+    Args:
+        weights: 2 float numbers, weight of MSE and Adversarial components
     """
-    Creates content loss for neural style transfer.
-    Uses pretrained VGG16 model from torchvision by default
-    layers: list of VGG layers used to evaluate content loss
-    criterion: str in ['mse', 'mae'], reduction method
-    reduction: Type of reduction to use
-    """
+    def __init__(self, weights: List[float, float] = [1, 1e-4]):
+        self.criterion = nn.MSELoss(reduction='mean')
+        self.weights = weights
 
-    def __init__(
-        self,
-        layers=["21"],
-        weights=1,
-        loss="mse",
-        device="cuda",
-        reduction="mean",
-        **args,
-    ):
-        super().__init__()
-        self.model = vgg16(pretrained=True, **args)
-        self.model.eval().to(device)
-        self.layers = listify(layers)
-        self.weights = listify(weights)
-
-        if loss == "mse":
-            self.criterion = nn.MSELoss(reduction=reduction)
-        elif loss == "mae":
-            self.criterion = nn.L1Loss(reduction=reduction)
-        else:
-            raise KeyError
-
-    def forward(self, input, content):
+    def forward(
+        self, output: torch.Tensor, target: torch.Tensor, fake_logits: torch.Tensor, real_logits: torch.Tensor):
+        r"""
+        Args:
+            output: Model prediciton for given input
+            target: Ground truth image
+            fake_logits: Discriminator predictions for output images
+            real_logits: Discriminator predictions for real images
         """
-        Measure distance between feature representations of input and content images
-        """
-        input_features = torch.stack(self.get_features(input))
-        content_features = torch.stack(self.get_features(content))
-        loss = self.criterion(input_features, content_features)
+        # L2 loss
+        mse = self.criterion(output, target)
 
-        # Solve big memory consumption
-        torch.cuda.empty_cache()
+        # Adversarial loss: max D(G(z)) == min - D(G(z))
+        adversarial_loss = - fake_logits.sigmoid().mean()
+
+        loss = mse * self.weights[0] + adversarial_loss * self.weights[1]
         return loss
+    
 
-    def get_features(self, x):
-        """
-        Extract feature maps from the intermediate layers.
-        """
-        if self.layers is None:
-            self.layers = ["21"]
+class DiscriminatorWGAN(nn.Module):
+    """Compute loss for Discriminator model using equation for WGAN-GP
 
-        features = []
-        for name, module in self.model.features._modules.items():
-            x = module(x)
-            if name in self.layers:
-                features.append(x)
-        # print(len(features))
-        return features
-
-
-class StyleLoss(_Loss):
+    Args:
+        gp (bool): Use Gradient Penalty
+        interpolate (bool): Interpolates between target and output images before GP
     """
-    Class for creating style loss for neural style transfer
-    model: str in ['vgg16_bn']
-    reduction: Type of reduction to use
-    """
+    def __init__(self, gp=True, interpolate=False):
 
-    def __init__(
-        self,
-        layers=["0", "5", "10", "19", "28"],
-        weights=[0.75, 0.5, 0.2, 0.2, 0.2],
-        loss="mse",
-        device="cuda",
-        reduction="mean",
-        **args,
-    ):
         super().__init__()
-        self.model = vgg16(pretrained=True, **args)
-        self.model.eval().to(device)
+        self.gp = gp
+        self.interpolate = interpolate
 
-        self.layers = listify(layers)
-        self.weights = listify(weights)
-
-        if loss == "mse":
-            self.criterion = nn.MSELoss(reduction=reduction)
-        elif loss == "mae":
-            self.criterion = nn.L1Loss(reduction=reduction)
-        else:
-            raise KeyError
-
-    def forward(self, input, style):
+    def forward(
+        self, output: torch.Tensor, target: torch.Tensor, fake_logits: torch.Tensor, real_logits: torch.Tensor):
+        r"""
+        Args:
+            output: Model prediciton for given input
+            target: Ground truth image
+            fake_logits: Discriminator predictions for output images
+            real_logits: Discriminator predictions for real images
         """
-        Measure distance between feature representations of input and content images
-        """
-        input_features = self.get_features(input)
-        style_features = self.get_features(style)
-        # print(style_features[0].size(), len(style_features))
+        # Adversarial loss: maximize D(x) - D(G(z))
+        adversarial_loss = - (real_logits.sigmoid().mean() - fake_logits.sigmoid().mean())
+        # # Gradient Penalty: (||grad D(x)|| - 1)^2
+        # if self.gp:
+        #     gradient_penalty = self._gradient_penalty(model_disc, target, output)
+        #     adversarial_loss = adversarial_loss + gradient_penalty
+        return adversarial_loss
 
-        input_gram = [self.gram_matrix(x) for x in input_features]
-        style_gram = [self.gram_matrix(x) for x in style_features]
+    # def _gradient_penalty(self, model_disc, target, output, interpolate=False):
+    #     if self.interpolate:
+    #         # Calculate interpolation
+    #         alpha = torch.rand(target.size(0), 1, 1, 1, device=target.device)
+    #         interpolated = alpha * target + (1 - alpha) * output
+    #         interpolated = interpolated.requires_grad_(True)
+    #     else:
+    #         interpolated = target.requires_grad_(True)
 
-        loss = [
-            self.criterion(torch.stack(i_g), torch.stack(s_g)) for i_g, s_g in zip(input_gram, style_gram)
-        ]
-        return torch.mean(torch.tensor(loss))
 
-    def get_features(self, x):
-        """
-        Extract feature maps from the intermediate layers.
-        """
-        if self.layers is None:
-            self.layers = ["0", "5", "10", "19", "28"]
+    #     # Always compute grads. in this part to avoid errors
+    #     with torch.set_grad_enabled(True):
+    #         # Calculate probability of interpolated examples
+    #         prob_interpolated = model_disc(interpolated)#.requires_grad_(True)
+    
+    #         # Calculate gradients of probabilities with respect to examples
+    #         gradients = torch.autograd.grad(outputs=prob_interpolated, inputs=interpolated,
+    #                                grad_outputs=torch.ones_like(prob_interpolated),
+    #                                create_graph=True, retain_graph=True, allow_unused=True)[0]
 
-        features = []
-        for name, module in self.model.features._modules.items():
-            x = module(x)
-            if name in self.layers:
-                features.append(x)
-        return features
+    #     # Gradients have shape (batch_size, num_channels, img_width, img_height),
+    #     # so flatten to easily take norm per example in batch
+    #     gradients = gradients.view(target.size(0), -1)
 
-    def gram_matrix(self, input):
-        """
-        Compute Gram matrix for each image in batch
-        input: Tensor of shape BxCxHxW
-            B: batch size
-            C: channels size
-            H&W: spatial size
-        """
+    #     # Derivatives of the gradient close to 0 can cause problems because of
+    #     # the square root, so manually calculate norm and add epsilon
+    #     gradients_norm = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-12)
 
-        B, C, H, W = input.size()
-        gram = []
-        for i in range(B):
-            x = input[i].view(C, H * W)
-            gram.append(torch.mm(x, x.t()))
-        return gram
+    #     # Return gradient penalty
+    #     return 10 * ((gradients_norm - 1) ** 2).mean()
+    
