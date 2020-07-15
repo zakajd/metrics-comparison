@@ -40,13 +40,13 @@ MEAN_STD_BY_NAME = {
 }
 
 
-def get_aug(aug_type="val", task="denoise", dataset="cifar100", size=64):
+def get_aug(aug_type: str = "val", task: str = "denoise", dataset: str = "cifar100", size: int = 64):
     """
     Args:
-        aug_type (str): {`val`, `test`, `light`, `medium`}
-        task (str): {"denoise", "deblur", "sr"}
-        dataset (str): Name of dataset to get MEAN and STD
-        size (int): final size of the crop
+        aug_type: {`val`, `test`, `light`, `medium`}
+        task: {"denoise", "deblur", "sr"}
+        dataset: Name of dataset to get MEAN and STD
+        size: final size of the crop
     """
 
     assert aug_type in ["val", "test", "light", "medium"]

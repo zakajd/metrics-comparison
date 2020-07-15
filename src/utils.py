@@ -11,19 +11,6 @@ import photosynthesis_metrics as pm
 from src.losses import StyleLoss, ContentLoss, PSNR
 
 
-def set_random_seed(seed):
-    """Fixes all possible seeds
-    Args:
-        seed (int): Seed number
-    """
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
-
-
 class SumOfLosses(_Loss):
     def __init__(self, l1, l2):
         super().__init__()
@@ -50,6 +37,11 @@ class WeightedLoss(_Loss):
         self.weight = self.weight.to(loss.device)
         return loss * self.weight[0]
 
+EXTRACTOR_FROM_NAME = {
+    "vgg16": torchvision.models.vgg16(pretrained=True, progress=False).features,
+    "vgg19": torchvision.models.vgg19(pretrained=True, progress=False).features,
+    "inception": InceptionV3(resize_input=False, use_fid_inception=True, normalize_input=True),
+}
 
 METRIC_FROM_NAME = {
     "ssim": pm.SSIMLoss,

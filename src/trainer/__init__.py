@@ -4,5 +4,6 @@ from src.trainer.callbacks import PhasesScheduler, ConsoleLogger, TensorBoard
 
 __all__ = [
     'GANState',
-    'GANTrainer'
+    'GANTrainer',
+    'PhasesScheduler', 'ConsoleLogger', 'TensorBoard', 'Timer'
 ]

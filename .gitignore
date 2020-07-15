@@ -15,4 +15,5 @@ __pycache__/
 datasets/
 /data/
 logs/
+old_logs/
 models/

@@ -6,14 +6,13 @@ import torch
 import torch.nn as nn
 # import torch.nn.functional as F
 
-
-class Identity(nn.Module):
-    def __init__(self):
-        super(Identity, self).__init__()
-
-    def forward(self, x):
-        return x
-
+def weights_init(m):
+    classname = m.__class__.__name__
+    if classname.find("Conv") != -1:
+        m.weight.data.normal_(0.0, 0.02)
+    elif classname.find("BatchNorm2d") != -1:
+        m.weight.data.normal_(1.0, 0.02)
+        m.bias.data.fill_(0)
 
 class UNet(nn.Module):
     """Custom U-Net architecture for Noise2Noise (see Appendix, Table 2)."""
@@ -165,4 +164,34 @@ class Regression(nn.Module):
         adjusted = self.b1 * (0.5 - 1 / (1 + torch.exp(self.b2 * (predicted_scores - self.b3)))) + \
             predicted_scores * self.b4 + self.b5
         return adjusted
+
+class Discriminator(nn.Module):
+    r"""Simple discriminator used in GAN training
+    Args:
+        nf (int): Number of discriminator features at the beginning
+    Returns:
+        logits: raw prediction for each image to be real or fake
+    """
+    def __init__(self, nf=32):
+        super().__init__()
+
+        self.main = nn.Sequential(
+            # input is 3 x 32 x 32
+            nn.Conv2d(3, nf * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(nf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (nf * 2) x 16 x 16
+            nn.Conv2d(nf * 2, nf * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(nf * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (nf * 4) x 8 x 8
+            nn.Conv2d(nf * 4, nf * 8, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(nf * 8),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (nf * 8) x 4 x 4
+            nn.Conv2d(nf * 8, 1, 4, 1, 0, bias=False),
+        )
+
+    def forward(self, input):
+        return self.main(input)
 
