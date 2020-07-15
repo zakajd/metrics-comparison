@@ -374,6 +374,34 @@ class CheckpointSaver(Callback):
             raise ValueError(f"CheckpointSaver can't find {self.monitor} value to monitor")
         return value
 
+
+class Timer(Callback):
+    """
+    Profiles first epoch and prints time spend on data loader and on model.
+    Usefull for profiling dataloader code performance
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.has_printed = False
+        self.timer = utils.TimeMeter()
+
+    def on_batch_begin(self):
+        self.timer.batch_start()
+
+    def on_batch_end(self):
+        self.timer.batch_end()
+
+    def on_loader_begin(self):
+        self.timer.reset()
+
+    def on_loader_end(self):
+        if not self.has_printed:
+            self.has_printed = True
+            d_time = self.timer.data_time.avg_smooth
+            b_time = self.timer.batch_time.avg_smooth
+            print(f"\nTimeMeter profiling. Data time: {d_time:.2E}s. Model time: {b_time:.2E}s \n")
+
 # class FileLogger(Callback):
 #     """Logs loss and metrics every epoch into file.
 #     Args:
