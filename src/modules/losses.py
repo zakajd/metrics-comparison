@@ -2,21 +2,37 @@
 Implementation of VGG16 loss, originaly used for style transfer and usefull in many other task (including GAN training)
 It's work in progress, no guarantees that code will work
 """
-import collections
-
+from typing import List
 
 import torch
 import torch.nn as nn
-from torch.nn.modules.loss import _Loss
-from torchvision.models import vgg16
 
 
-def listify(p):
-    if p is None:
-        p = []
-    elif not isinstance(p, collections.Iterable):
-        p = [p]
-    return p
+class SumOfLosses(torch.nn.modules.loss._Loss):
+    def __init__(self, l1, l2):
+        super().__init__()
+        self.l1 = l1
+        self.l2 = l2
+
+    def __call__(self, *inputs):
+        return self.l1(*inputs) + self.l2(*inputs)
+
+
+class WeightedLoss(torch.nn.modules.loss._Loss):
+    """
+    Wrapper class around loss function that applies weighted with fixed factor.
+    This class helps to balance multiple losses if they have different scales
+    """
+
+    def __init__(self, loss, weight=1.0):
+        super().__init__()
+        self.loss = loss
+        self.weight = torch.Tensor([weight])
+
+    def forward(self, *inputs):
+        loss = self.loss(*inputs)
+        self.weight = self.weight.to(loss.device)
+        return loss * self.weight[0]
 
 
 class GeneratorWGAN(nn.Module):
@@ -25,12 +41,12 @@ class GeneratorWGAN(nn.Module):
     Args:
         weights: 2 float numbers, weight of MSE and Adversarial components
     """
-    def __init__(self, weights: List[float, float] = [1, 1e-4]):
+    def __init__(self, weights: List[float] = [1.0, 1e-4]):
         self.criterion = nn.MSELoss(reduction='mean')
         self.weights = weights
 
     def forward(
-        self, output: torch.Tensor, target: torch.Tensor, fake_logits: torch.Tensor, real_logits: torch.Tensor):
+            self, output: torch.Tensor, target: torch.Tensor, fake_logits: torch.Tensor, real_logits: torch.Tensor):
         r"""
         Args:
             output: Model prediciton for given input
@@ -46,7 +62,7 @@ class GeneratorWGAN(nn.Module):
 
         loss = mse * self.weights[0] + adversarial_loss * self.weights[1]
         return loss
-    
+
 
 class DiscriminatorWGAN(nn.Module):
     """Compute loss for Discriminator model using equation for WGAN-GP
@@ -62,7 +78,7 @@ class DiscriminatorWGAN(nn.Module):
         self.interpolate = interpolate
 
     def forward(
-        self, output: torch.Tensor, target: torch.Tensor, fake_logits: torch.Tensor, real_logits: torch.Tensor):
+            self, output: torch.Tensor, target: torch.Tensor, fake_logits: torch.Tensor, real_logits: torch.Tensor):
         r"""
         Args:
             output: Model prediciton for given input
@@ -87,12 +103,11 @@ class DiscriminatorWGAN(nn.Module):
     #     else:
     #         interpolated = target.requires_grad_(True)
 
-
     #     # Always compute grads. in this part to avoid errors
     #     with torch.set_grad_enabled(True):
     #         # Calculate probability of interpolated examples
     #         prob_interpolated = model_disc(interpolated)#.requires_grad_(True)
-    
+
     #         # Calculate gradients of probabilities with respect to examples
     #         gradients = torch.autograd.grad(outputs=prob_interpolated, inputs=interpolated,
     #                                grad_outputs=torch.ones_like(prob_interpolated),
@@ -108,4 +123,3 @@ class DiscriminatorWGAN(nn.Module):
 
     #     # Return gradient penalty
     #     return 10 * ((gradients_norm - 1) ** 2).mean()
-    

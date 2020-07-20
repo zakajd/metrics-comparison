@@ -1,4 +1,4 @@
-r""" 
+r"""
 References:
     https://github.com/catalyst-team/catalyst/blob/master/catalyst/core/runner.py
     https://github.com/bonlime/pytorch-tools/blob/master/pytorch_tools/fit_wrapper/wrapper.py
@@ -9,8 +9,11 @@ import torch
 from copy import copy
 from pytorch_tools.utils.misc import to_numpy
 
+from src.modules.wrappers import AverageMeter
 from src.trainer.state import GANState
 from src.trainer.callbacks import Callbacks, ConsoleLogger
+
+NAMES = ["generator", "discriminator"]
 
 
 class GANTrainer:
@@ -19,16 +22,16 @@ class GANTrainer:
         models: Generator and Discriminator models
         optimizers: Generator and Discriminator optimizers
         criterions: Generator and Discrimitor losses
-        metrics (List): Optional metrics to measure generator performance. 
+        metrics (List): Optional metrics to measure generator performance.
             All metrics must have `name` attribute. Defaults to None.
         callbacks (List): List of Callbacks to use. Defaults to ConsoleLogger().
         gradient_clip_val (float): Gradient clipping value. 0 means no clip. Causes ~5% training slowdown
     """
-    NAMES = ["generator", "discriminator"]
+
     def __init__(
         self,
         models: List = None,
-        optimizers: Lst = None,
+        optimizers: List = None,
         criterions: List = None,
         metrics: List = None,
         callbacks=ConsoleLogger(),
@@ -86,19 +89,19 @@ class GANTrainer:
         return self.state.loss_meter.avg, [m.avg for m in self.state.metric_meters]
 
     def _make_step(self):
-        
+
         data, target = self.state.input
 
         output = self.state.models["generator"](data)
         fake_output = self.state.models["discriminator"](output)
         real_output = self.state.models["discriminator"](data)
-    
+
         self.state.output["generator"] = output
         self.state.output["discriminator"] = [fake_output, real_output]
 
         loss = {
-            "generator": self.state.criterions["generator"](output, target, fake_logits, real_logits)
-            "discriminator": self.state.criterions["discriminator"](output, target, fake_logits, real_logits),
+            "generator": self.state.criterions["generator"](output, target, fake_output, real_output),
+            "discriminator": self.state.criterions["discriminator"](output, target, fake_output, real_output),
         }
         if self.state.is_train:
             # ---------- TRAIN GENERATOR --------------
@@ -121,7 +124,7 @@ class GANTrainer:
         for key in self.NAMES:
             self.state.loss_meter[key].update(to_numpy(loss[key]))
             for metric, meter in zip(self.state.metrics[key], self.state.metric_meters[key]):
-                meter.update(to_numpy(metric(output, target))) # .squeeze() ??
+                meter.update(to_numpy(metric(output, target)))  # .squeeze() ??
 
     def _reset_state(self):
         r"""Resets losses, metrics, times, etc."""

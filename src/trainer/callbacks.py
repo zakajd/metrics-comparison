@@ -1,14 +1,18 @@
 import os
 import math
+import collections
+from typing import List, Dict
 
 import torch
-from loguru import logger
+import numpy as np
 from tqdm import tqdm
-from pytorch_tools.utils.misc import listify
-# from torch.utils.tensorboard import SummaryWriter
+from loguru import logger
+from pytorch_tools.utils.misc import listify, TimeMeter
 
 from src.trainer import GANState
 from src.modules.wrappers import DummyAverageMeter
+from src.utils import EXTRACTOR_FROM_NAME, METRIC_FROM_NAME
+from src.data import crop_patches
 
 NAMES = ["generator", "discriminator"]
 
@@ -20,10 +24,10 @@ class Callback:
     usage example:
     begin
     ---epoch begin (one epoch - one run of every loader)
-    ------loader begin 
+    ------loader begin
     ---------batch begin
     ---------batch end
-    ------loader end 
+    ------loader end
     ---epoch end
     end
     """
@@ -108,27 +112,26 @@ class PhasesScheduler(Callback):
     Scheduler that uses `phases` to process updates.
     Args:
         phases: phases
-        change_every: how often to actually change the lr. changing too 
+        change_every: how often to actually change the lr. changing too
             often may slowdown the training
     Example:
         PHASES = {
-            "generator": 
+            "generator":
                 [{"ep":[0,8],  "lr":[0,0.1], "mom":0.9, },
                 {"ep":[8,24], "lr":[0.1, 0.01], "mode":"cos"},
                 {'ep':[24, 30], "lr": 0.001}],
-            "discriminator": 
+            "discriminator":
                 [{"ep":[0,8],  "lr":[0,0.1], "mom":0.9, },
                 {"ep":[8,24], "lr":[0.1, 0.01], "mode":"cos"},
                 {'ep':[24, 30], "lr": 0.001}],
         }
     """
 
-        
     def __init__(self, phases: Dict[List[Dict]], change_every: int = 50):
         self.change_every = change_every
         self.current_lr = {key: None for key in NAMES}
-        self.current_mom = {key: None for key in NAMES} 
-        
+        self.current_mom = {key: None for key in NAMES}
+
         self.phases = {key: list(map(self.format_phase, phases[key])) for key in NAMES}
         self.phase = {key: self.phases[key][0] for key in NAMES}
         # Assume that number of epochs for both models are equal
@@ -156,7 +159,7 @@ class PhasesScheduler(Callback):
             return start * gamma ** (pct * 100)
         else:
             raise ValueError(f"Mode: `{mode}` is not supported in PhasesScheduler")
-    
+
     def _get_lr_mom(self, phase, batch_curr):
         batch_tot = self.state.epoch_size
         if len(phase["ep"]) == 1:
@@ -197,7 +200,7 @@ class PhasesScheduler(Callback):
             lr, mom = self._get_lr_mom(self.phase[key], self.state.step)
             if (self.current_lr[key] == lr and self.current_mom[key] == mom) or (self.state.step % self.change_every != 0):
                 continue
-                
+
             self.current_lr[key] = lr
             self.current_mom[key] = mom
             for param_group in self.state.optimizers[key].param_groups:
@@ -216,7 +219,7 @@ class ConsoleLogger(Callback):
         self.pbar = tqdm(total=self.state.epoch_size, desc=desc, ncols=0)
 
     def on_loader_end(self):
-        desc = OrderedDict()
+        desc = collections.OrderedDict()
         # Update to avg
         for key in NAMES:
             desc.update({f"{key} loss": f"{self.state.loss_meter[key].avg:.3f}"})
@@ -227,7 +230,7 @@ class ConsoleLogger(Callback):
         self.pbar.close()
 
     def on_batch_end(self):
-        desc = OrderedDict()
+        desc = collections.OrderedDict()
         for key in NAMES:
             desc.update({f"{key} loss": f"{self.state.loss_meter[key].avg_smooth:.3f}"})
 
@@ -245,7 +248,7 @@ class TensorBoard(Callback):
         num_images: Number of images to log. Each image is saved in a separate tab!
     """
 
-    def __init__(self, log_dir:str, log_every: int = 40, num_images: int = 2):
+    def __init__(self, log_dir: str, log_every: int = 40, num_images: int = 2):
         super().__init__()
         self.log_dir = log_dir
         self.log_every = log_every
@@ -258,15 +261,15 @@ class TensorBoard(Callback):
 
     def on_begin(self):
         os.makedirs(self.log_dir, exist_ok=True)
-        self.writer = SummaryWriter(self.log_dir)
+        self.writer = torch.utils.tensorboard.SummaryWriter(self.log_dir)
 
     def on_batch_end(self):
         # Save first validation batch for plotting
         if not self.state.is_train and not self.saved:
             self.input = self.state.input
-    
+
         self.current_step += self.state.batch_size
-    
+
         if self.state.is_train and (self.current_step % self.log_every == 0):
             for key in NAMES:
                 self.writer.add_scalar(f"train_/{key}_loss", self.state.loss_meter[key].val, self.current_step)
@@ -282,7 +285,7 @@ class TensorBoard(Callback):
 
             lr = sorted([pg["lr"] for pg in self.state.optimizers[key].param_groups])[-1]  # largest lr
             self.writer.add_scalar(f"train_/{key}_lr", lr, self.current_step)
-        
+
             # Don't log if no val
             if self.state.val_loss[key] is None:
                 continue
@@ -324,7 +327,7 @@ class CheckpointSaver(Callback):
         self,
         save_dir: str,
         save_name="model_{monitor}_{ep}_{metric:.2f}.chpn",
-        monitor:str = "loss",
+        monitor: str = "loss",
         minimize: bool = True,
         include_optimizer: bool = False,
         verbose=True,
@@ -334,7 +337,7 @@ class CheckpointSaver(Callback):
         self.save_name = save_name
         self.monitor = monitor
 
-        if miminize:
+        if minimize:
             self.best = np.inf
             self.monitor_op = np.less
         else:
@@ -391,7 +394,7 @@ class Timer(Callback):
     def __init__(self):
         super().__init__()
         self.has_printed = False
-        self.timer = utils.TimeMeter()
+        self.timer = TimeMeter()
 
     def on_batch_begin(self):
         self.timer.batch_start()
@@ -411,20 +414,24 @@ class Timer(Callback):
 
 
 class FeatureMetrics(Callback):
-    r"""Dirty hack for computation of distribution metrics. 
+    r"""Dirty hack for computation of distribution metrics.
     NOTE: This callback shuold be called before TensorBoard logging, otherwise it won't work properly.
 
     Args:
-        feature_extractor: Model used to extract features
-        metric: 
+        feature_extractor: Name of model used to extract features
+        metrics: List with metric names and parameters
     """
-    def __init__(self, feature_extractor: nn.Module, metrics: List) -> None:
-        self.feature_extractor = feature_extractor
+    def __init__(self, feature_extractor: str, metrics: List) -> None:
+        # Define feature extractor
+        self.feature_extractor = EXTRACTOR_FROM_NAME[feature_extractor]
+
         self.metric_names = metrics[::2]
         self.metrics = [
             METRIC_FROM_NAME[name](**kwargs) for name, kwargs in zip(metrics[::2], metrics[1::2])
         ]
-        self.metrics = [m.name = name for m, name in zip(self.metrics, metric_names)]
+        # Add name for proper logging
+        for metric, name in zip(self.metrics, self.metric_names):
+            metric.name = f"{name}_{feature_extractor}"
 
     def on_loader_begin(self):
         r"""Reset state"""

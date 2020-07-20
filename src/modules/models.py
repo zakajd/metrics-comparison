@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 # import torch.nn.functional as F
 
+
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:
@@ -13,6 +14,7 @@ def weights_init(m):
     elif classname.find("BatchNorm2d") != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
+
 
 class UNet(nn.Module):
     """Custom U-Net architecture for Noise2Noise (see Appendix, Table 2)."""
@@ -151,6 +153,7 @@ MODEL_FROM_NAME = {
     "dncnn": DnCNN,
 }
 
+
 class Regression(nn.Module):
     def __init__(self):
         super().__init__()
@@ -159,11 +162,12 @@ class Regression(nn.Module):
         self.b3 = nn.Parameter(torch.ones(1) * 1e-3)
         self.b4 = nn.Parameter(torch.ones(1) * 1e-3)
         self.b5 = nn.Parameter(torch.zeros(1))
-    
+
     def forward(self, predicted_scores):
         adjusted = self.b1 * (0.5 - 1 / (1 + torch.exp(self.b2 * (predicted_scores - self.b3)))) + \
             predicted_scores * self.b4 + self.b5
         return adjusted
+
 
 class Discriminator(nn.Module):
     r"""Simple discriminator used in GAN training
@@ -194,4 +198,3 @@ class Discriminator(nn.Module):
 
     def forward(self, input):
         return self.main(input)
-

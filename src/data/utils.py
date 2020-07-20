@@ -41,8 +41,6 @@ def crop_patches(images: torch.Tensor, size=64, stride=32):
         size: size of a square patch
         stride: Step between patches
     """
-    shape = images.shape
     patches = images.data.unfold(1, 3, 3).unfold(2, size, stride).unfold(3, size, stride)
     patches = patches.reshape(-1, 3, size, size)
     return patches
-
