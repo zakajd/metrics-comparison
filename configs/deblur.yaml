@@ -4,7 +4,7 @@
         ## General
         device : 0
         train_dataset : div2k
-        val_datasets: [div2k,'set5']
+        val_dataset: [div2k,'set5']
         aug_type : 'medium'
         task : deblur
         check_val_every_n_epoch : 2
