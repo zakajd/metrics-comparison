@@ -2,12 +2,13 @@ import os
 import math
 
 import torch
-import logging
+from loguru import logger
 from tqdm import tqdm
 from pytorch_tools.utils.misc import listify
 # from torch.utils.tensorboard import SummaryWriter
 
 from src.trainer import GANState
+from src.modules.wrappers import DummyAverageMeter
 
 NAMES = ["generator", "discriminator"]
 
@@ -215,11 +216,12 @@ class ConsoleLogger(Callback):
         self.pbar = tqdm(total=self.state.epoch_size, desc=desc, ncols=0)
 
     def on_loader_end(self):
-        # Update to avg
         desc = OrderedDict()
+        # Update to avg
         for key in NAMES:
             desc.update({f"{key} loss": f"{self.state.loss_meter[key].avg:.3f}"})
-            desc.update({m.name: f"{m.avg:.3f}" for m in self.state.metric_meters[key]})
+
+        desc.update({m.name: f"{m.avg:.3f}" for m in self.state.metric_meters})
         self.pbar.set_postfix(**desc)
         self.pbar.update()
         self.pbar.close()
@@ -228,8 +230,8 @@ class ConsoleLogger(Callback):
         desc = OrderedDict()
         for key in NAMES:
             desc.update({f"{key} loss": f"{self.state.loss_meter[key].avg_smooth:.3f}"})
-            # desc.update({m.name: f"{m.avg_smooth:.3f}" for m in self.state.metric_meters[key]})
 
+        desc.update({m.name: f"{m.avg_smooth:.3f}" for m in self.state.metric_meters})
         self.pbar.set_postfix(**desc)
         self.pbar.update()
 
@@ -349,7 +351,7 @@ class CheckpointSaver(Callback):
         if self.monitor_op(current, self.best):
             ep = self.state.epoch_log
             if self.verbose:
-                print(f"Epoch {ep:2d}: best {self.monitor} improved from {self.best:.4f} to {current:.4f}")
+                logger.info(f"Epoch {ep:2d}: best {self.monitor} improved from {self.best:.4f} to {current:.4f}")
             self.best = current
             save_name = os.path.join(self.save_dir, self.save_name.format(ep=ep, metric=current))
             self._save_checkpoint(save_name)
@@ -367,9 +369,14 @@ class CheckpointSaver(Callback):
         if self.monitor == "loss":
             value = self.state.loss_meter["generator"].avg
         else:
-            for metric_meter in self.state.metric_meters["generator"]:
+            for metric_meter in self.state.metric_meters:
                 if metric_meter.name == self.monitor:
                     value = metric_meter.avg
+
+            for metric in self.state.feature_metric_meters:
+                if metric_meter.name == self.monitor:
+                    value = metric_meter.avg
+
         if value is None:
             raise ValueError(f"CheckpointSaver can't find {self.monitor} value to monitor")
         return value
@@ -400,7 +407,63 @@ class Timer(Callback):
             self.has_printed = True
             d_time = self.timer.data_time.avg_smooth
             b_time = self.timer.batch_time.avg_smooth
-            print(f"\nTimeMeter profiling. Data time: {d_time:.2E}s. Model time: {b_time:.2E}s \n")
+            logger.info(f"\nTimeMeter profiling. Data time: {d_time:.2E}s. Model time: {b_time:.2E}s \n")
+
+
+class FeatureMetrics(Callback):
+    r"""Dirty hack for computation of distribution metrics. 
+    NOTE: This callback shuold be called before TensorBoard logging, otherwise it won't work properly.
+
+    Args:
+        feature_extractor: Model used to extract features
+        metric: 
+    """
+    def __init__(self, feature_extractor: nn.Module, metrics: List) -> None:
+        self.feature_extractor = feature_extractor
+        self.metric_names = metrics[::2]
+        self.metrics = [
+            METRIC_FROM_NAME[name](**kwargs) for name, kwargs in zip(metrics[::2], metrics[1::2])
+        ]
+        self.metrics = [m.name = name for m, name in zip(self.metrics, metric_names)]
+
+    def on_loader_begin(self):
+        r"""Reset state"""
+        if self.state.is_train:
+            return
+        self.prediction_features = []
+        self.target_features = []
+
+    def on_batch_end(self):
+        _, target = self.state.input
+        prediction = self.state.output["generator"]
+
+        # Extract patches from inputs to increase number of features
+        prediction_patches = crop_patches(prediction, size=96, stride=32)
+        target_patches = crop_patches(target, size=96, stride=32)
+
+        # Extract features from prediction patches
+        patch_loader = prediction_patches.view(-1, 10, *prediction_patches.shape[-3:])
+        with torch.no_grad():
+            for patches in patch_loader:
+                features = torch.nn.functional.adaptive_avg_pool2d(self.feature_extractor(patches), 1)
+                self.prediction_features.append(features.squeeze())
+
+        # Extract features from target patches
+        patch_loader = target_patches.view(-1, 10, *target_patches.shape[-3:])
+        with torch.no_grad():
+            for patches in patch_loader:
+                features = torch.nn.functional.adaptive_avg_pool2d(self.feature_extractor(patches), 1)
+                self.target_features.append(features.squeeze())
+
+    def on_loader_end(self):
+        # Reduce collected features
+        prediction_features = torch.cat(self.prediction_features, dim=0)
+        target_features = torch.cat(self.target_features, dim=0)
+
+        for name, metric in zip(self.metric_names, self.metrics):
+            score = metric(prediction_features, target_features)
+            self.state.metric_meters[name] = DummyAverageMeter(value=score.cpu().numpy())
+
 
 # class FileLogger(Callback):
 #     """Logs loss and metrics every epoch into file.
