@@ -1,7 +1,3 @@
-# import os
-# import glob
-from functools import reduce
-
 import os
 import cv2
 import h5py
@@ -10,12 +6,10 @@ import numpy as np
 import pandas as pd
 import torchvision
 from loguru import logger
-from torch.utils.data import Dataset, DataLoader
-import albumentations as albu
 import albumentations.pytorch as albu_pt
 
-
 from src.data.utils import walk_files
+
 
 class DistortionSampler(torch.utils.data.sampler.Sampler):
     r"""Samples elements with same distortion type
@@ -31,12 +25,13 @@ class DistortionSampler(torch.utils.data.sampler.Sampler):
             self.data_source.scores = self.data_source.df['score'].to_numpy()
         else:
             self.data_source = data_source
-            
+
     def __iter__(self):
         return iter(range(len(self.data_source)))
 
     def __len__(self):
         return len(self.data_source.df)
+
 
 class TID2013(torch.utils.data.Dataset):
     """
@@ -44,14 +39,14 @@ class TID2013(torch.utils.data.Dataset):
         root (str) – Root directory path.
         train (bool): Flag to return train if True and validation if False
         transform (callable) – A function/transform that takes in the input and transforms it.
-        
+
     Returns:
         distorted: image with some kind of distortion
         reference: image without distortions
         score: MOS score for this pair of images
     """
     _filename = "mos_with_names.txt"
-    
+
     def __init__(self, root="data/raw/tid2013", transform=None):
         self.df = pd.read_csv(
             os.path.join(root, self._filename),
@@ -59,13 +54,12 @@ class TID2013(torch.utils.data.Dataset):
             names=['score', 'dist_img'],
             header=None
         )
-        
 
         self.df["ref_img"] = self.df["dist_img"].apply(lambda x: (x[:3] + x[-4:]).upper())
         self.df['dist_type'] = self.df['dist_img'].apply(lambda x: x[4:-4])
         self.scores = self.df['score'].to_numpy()
         self.root = root
-        
+
         if transform is None:
             self.transform = albu_pt.ToTensorV2()
         else:
@@ -75,16 +69,16 @@ class TID2013(torch.utils.data.Dataset):
         distorted_path = os.path.join(self.root, "distorted_images", self.df.iloc[index][1])
         reference_path = os.path.join(self.root, "reference_images", self.df.iloc[index][2])
         score = self.scores[index]
-        
+
         # Load image and ref
         distorted = cv2.imread(distorted_path, cv2.IMREAD_UNCHANGED)
         distorted = cv2.cvtColor(distorted, cv2.COLOR_BGR2RGB)
         distorted = self.transform(image=distorted)["image"]
 
         reference = cv2.imread(reference_path, cv2.IMREAD_UNCHANGED)
-        reference = cv2.cvtColor(reference, cv2.COLOR_BGR2RGB)   
+        reference = cv2.cvtColor(reference, cv2.COLOR_BGR2RGB)
         reference = self.transform(image=reference)["image"]
-        
+
         return distorted, reference, score
 
     def __len__(self):
@@ -93,29 +87,27 @@ class TID2013(torch.utils.data.Dataset):
 
 class KADID10k(torch.utils.data.Dataset):
     """
-    Total length = 
     Args:
         root (str) – Root directory path.
         train (bool): Flag to return train if True and validation if False
         transform (callable) – A function/transform that takes in the input and transforms it.
-        
+
     Returns:
         distorted: 25 images with fixed distortion type and level
         reference: 25 original images
     """
     _filename = "dmos.csv"
-    
-    def __init__(
-        self, root="data/raw/kadid10k", transform=None):
-        
-        self.images_root = os.path.join(root, "images")
-    
+    _folder = "kadid10k"
+
+    def __init__(self, root="data/raw", transform=None):
+        self.images_root = os.path.join(root, self._folder, "images")
+
         # Read file mith DMOS and names
-        self.df = pd.read_csv(os.path.join(root, self._filename))
+        self.df = pd.read_csv(os.path.join(root, self._folder, self._filename))
         self.df.rename(columns={"dmos": "score"}, inplace=True)
         self.scores = self.df["score"].to_numpy()
         self.df['dist_type'] = self.df['dist_img'].apply(lambda x: x[4:-4])
-        
+
         if transform is None:
             self.transform = albu_pt.ToTensorV2()
         else:
@@ -125,20 +117,21 @@ class KADID10k(torch.utils.data.Dataset):
         distorted_path = os.path.join(self.images_root, self.df.iloc[index][0])
         reference_path = os.path.join(self.images_root, self.df.iloc[index][1])
         score = self.scores[index]
-        
+
         # Load image and ref
         distorted = cv2.imread(distorted_path, cv2.IMREAD_UNCHANGED)
         distorted = cv2.cvtColor(distorted, cv2.COLOR_BGR2RGB)
         distorted = self.transform(image=distorted)["image"]
 
         reference = cv2.imread(reference_path, cv2.IMREAD_UNCHANGED)
-        reference = cv2.cvtColor(reference, cv2.COLOR_BGR2RGB)   
+        reference = cv2.cvtColor(reference, cv2.COLOR_BGR2RGB)
         reference = self.transform(image=reference)["image"]
-        
+
         return distorted, reference, score
-    
+
     def __len__(self):
         return len(self.df)
+
 
 class MNIST(torchvision.datasets.MNIST):
     def __getitem__(self, index):
@@ -245,6 +238,7 @@ class Set5(torch.utils.data.Dataset):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     _folder = "Set5"
+
     def __init__(
             self, root="data/raw", train=False, transform=None):
         assert train is False, "This dataset can be used only for validation"
@@ -290,6 +284,7 @@ class Set14(Set5):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     _folder = "Set14"
+
     def __init__(
             self, root="data/raw", train=False, transform=None):
         super().__init__(root, train, transform)
@@ -303,8 +298,9 @@ class Urban100(torch.utils.data.Dataset):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     _folder = "Urban100"
+
     def __init__(self, root="data/raw", train=False, transform=None):
-        root = os.path.join(root, _folder)
+        root = os.path.join(root, self._folder)
 
         walker = walk_files(
             root, suffix=".png", prefix=True, remove_suffix=False
@@ -353,6 +349,7 @@ class Manga109(Urban100):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     _folder = "Manga109"
+
     def __init__(
             self, root="data/raw", train=False, transform=None):
         super().__init__(root, train, transform)
@@ -366,6 +363,7 @@ class COIL100(Urban100):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     _folder = "coil-100"
+
     def __init__(
             self, root="data/raw/coil-100", train=False, transform=None):
         super().__init__(root, train, transform)
@@ -421,6 +419,7 @@ class BSDS100(Urban100):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     _folder = "BSDS100"
+
     def __init__(
             self, root="data/raw", train=False, transform=None):
         super().__init__(root, train, transform)
@@ -435,6 +434,7 @@ class TinyImageNet(torch.utils.data.Dataset):
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
     _folder = "tiny-imagenet-200"
+
     def __init__(
             self, root="data/raw", train=True, transform=None):
         root = os.path.join(root, self._folder, "train" if train else "val")
@@ -510,9 +510,13 @@ class MedicalDecathlon(torch.utils.data.Dataset):
         return input, target
 
 
-
 def get_dataloader(
-    dataset: str, transform=None, batch_size: int = 128, train: bool = True, train_size: float = 0.8, **kwargs):
+        dataset: str,
+        transform=None,
+        batch_size: int = 128,
+        train: bool = True,
+        train_size: float = 0.8,
+        **kwargs):
     """Returns data from several datasets
 
     Args:
@@ -529,22 +533,9 @@ def get_dataloader(
     # Get dataset
     dataset = DATASET_FROM_NAME[dataset](train=train, transform=transform)
 
-    if "mnist" in dataset:
-        dataset = MNIST("data/raw/", train, transform)
-        all_datasets.append(dataset)
-
-
-
-    if "medicaldecathlon" in datasets:
-        dataset = MedicalDecathlon("data/raw/decathlon", "colon.h5", train, transform)
-        all_datasets.append(dataset)
-
-    #  Concat all datasets into one
-    all_datasets = reduce(lambda x, y: x + y, all_datasets)
-
     if train:
         dataloader = torch.utils.data.DataLoader(
-            all_datasets,
+            dataset,
             batch_size=batch_size,
             shuffle=True,
             num_workers=0,
@@ -552,14 +543,15 @@ def get_dataloader(
             pin_memory=True)
     else:
         dataloader = torch.utils.data.DataLoader(
-            all_datasets,
+            dataset,
             batch_size=batch_size,
             shuffle=False,
             num_workers=0,
             pin_memory=True)
 
-    logger.info(f"\nUsing datasets: {datasets}. {'Train' if train else 'Validation'} size: {len(all_datasets)}.")
+    logger.info(f"\nUsing dataset: {dataset}. {'Train' if train else 'Validation'} size: {len(dataset)}.")
     return dataloader
+
 
 DATASET_FROM_NAME = {
     "mnist": MNIST,
