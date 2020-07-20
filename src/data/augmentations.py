@@ -72,7 +72,6 @@ def get_aug(aug_type: str = "val", task: str = "denoise", dataset: str = "cifar1
         albu.RandomResizedCrop(size, size, scale=(0.5, 1.)),
     ])
 
-
     if task == "deblur":
         TASK_AUG = albu.OneOf([
             albu.Blur(blur_limit=(3, 5)),
@@ -82,14 +81,14 @@ def get_aug(aug_type: str = "val", task: str = "denoise", dataset: str = "cifar1
             # albu.GlassBlur(),
         ], p=1.0)
     elif task == "denoise":
-#         TASK_AUG = noise
+        # TASK_AUG = noise
         TASK_AUG = albu.OneOf([
             noise,
             # albu.GaussNoise(),
             # GaussNoiseNoClipping(singlechannel, var_limit=0.1 if singlechannel else (20., 50.)),
-#             albu.GlassBlur(),
-#             albu.ISONoise(),
-#             albu.MultiplicativeNoise()
+            # albu.GlassBlur(),
+            # albu.ISONoise(),
+            # albu.MultiplicativeNoise(),
         ], p=1.0)
     elif task == "sr":
         TASK_AUG = albu.Downscale(
@@ -125,4 +124,3 @@ def get_aug(aug_type: str = "val", task: str = "denoise", dataset: str = "cifar1
     }
 
     return types[aug_type]
-

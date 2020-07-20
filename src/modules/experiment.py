@@ -2,63 +2,17 @@
 import math
 from collections import OrderedDict
 
-
 import torch
 import torchvision
 import pytorch_lightning as pl
-# import torch.nn.functional as F
-import photosynthesis_metrics as pm
 
-
-from src.augmentations import get_aug
-from src.datasets import get_dataloader
-from src.models import Identity, MODEL_FROM_NAME
-from src.utils import METRIC_FROM_NAME, METRIC_SCALE_FROM_NAME, SumOfLosses, WeightedLoss
+from src.utils import METRIC_SCALE_FROM_NAME
 
 
 class BaseModel(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.hparams = hparams
-        self.model = MODEL_FROM_NAME[hparams.model](**hparams.model_params)
-
-        if "resnet" in self.hparams.feature_extractor:
-            self.feature_extractor = torchvision.models.__dict__[self.hparams.feature_extractor](
-                pretrained=True
-            )
-            # Hack to get intermidiate features for ResNet model
-            self.feature_extractor.fc = Identity()
-
-        elif "inception" in self.hparams.feature_extractor:
-            self.feature_extractor = pm.feature_extractors.fid_inception.InceptionV3(
-                resize_input=False,
-                normalize_input=False,
-                use_fid_inception=False,)
-        else:
-            raise ValueError("Feature extractor must be ResNet or Inception")
-
-        # Use L1 + MS-SSIM as loss function
-        self.validation_features = None
-        ms_ssim_loss = WeightedLoss(pm.MultiScaleSSIMLoss(), 1.0)
-
-        self.criterion = SumOfLosses(torch.nn.L1Loss(), ms_ssim_loss)
-
-        # Init per-image metrics
-        self.metric_names = hparams.metrics[::2]
-        self.metrics = [
-            METRIC_FROM_NAME[name](**kwargs) for name, kwargs in zip(hparams.metrics[::2], hparams.metrics[1::2])
-        ]
-
-        print("Metrics", self.metrics)
-        # Init feature metrics
-        self.feat_metric_names = hparams.feature_metrics[::2]
-        self.feat_metrics = [
-            METRIC_FROM_NAME[name](**kwargs) for name, kwargs in zip(hparams.feature_metrics[::2], hparams.feature_metrics[1::2])
-        ]
-        print("Feature metrics", self.feat_metrics)
-
-        # Save one specific batch and use it to print validation images
-        self.saved_batch = None
 
     def forward(self, x):
         return self.model(x)
@@ -127,9 +81,9 @@ class BaseModel(pl.LightningModule):
                 metric_value = output[metric_name]
                 metric_total += metric_value
 
-            # Not the smartest way to do this
-            log_dict["validation/" + metric_name] = metric_total / len(outputs)
-            model_dict[metric_name] = log_dict["validation/" + metric_name] * METRIC_SCALE_FROM_NAME[metric_name]
+            # # Not the smartest way to do this
+            # log_dict["validation/" + metric_name] = metric_total / len(outputs)
+            # model_dict[metric_name] = log_dict["validation/" + metric_name] * METRIC_SCALE_FROM_NAME[metric_name]
 
         self.metric_names.pop()  # Remove `loss` from this list
 
@@ -166,61 +120,6 @@ class BaseModel(pl.LightningModule):
         self.logger.experiment.add_scalars(f"models/{self.hparams.name}", model_dict, self.current_epoch)
         result = {'progress_bar': tqdm_dict, 'log': log_dict, 'val_loss': log_dict["validation/loss"]}
         return result
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(
-            self.parameters(),
-            lr=self.hparams.lr,
-            weight_decay=self.hparams.weight_decay,
-            amsgrad=True
-        )
-
-        # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=self.hparams.epochs)
-        return [optimizer], [scheduler]
-
-    def train_dataloader(self):
-        # Transforms
-        hp = self.hparams
-        transform = get_aug(
-            aug_type=hp.aug_type,
-            task=hp.task,
-            dataset=hp.train_dataset[0],
-            size=hp.size
-        )
-
-        train_loader = get_dataloader(
-            datasets=hp.train_dataset[0],
-            train=True,
-            transform=transform,
-            batch_size=hp.batch_size
-        )
-
-        return train_loader
-
-    def val_dataloader(self):
-        hp = self.hparams
-
-        # Get loaders for multiple datasets
-        loaders = []
-        for dataset in hp.val_datasets:
-            transform = get_aug(
-                aug_type="val",
-                task=hp.task,
-                dataset=dataset,
-                size=hp.size
-            )
-
-            val_loader = get_dataloader(
-                datasets=dataset,
-                train=False,
-                transform=transform,
-                batch_size=hp.batch_size
-            )
-
-            loaders.append(val_loader)
-        return loaders
 
     def on_epoch_end(self):
         # Save images only on validation epochs
