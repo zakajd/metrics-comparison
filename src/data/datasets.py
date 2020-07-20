@@ -10,16 +10,14 @@ import numpy as np
 import pandas as pd
 import torchvision
 from loguru import logger
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
-from torch.utils.data.sampler import Sampler
+from torch.utils.data import Dataset, DataLoader
 import albumentations as albu
 import albumentations.pytorch as albu_pt
 
-# from src.augmentations import get_aug
+
 from src.data.utils import walk_files
 
-class DistortionSampler(Sampler):
+class DistortionSampler(torch.utils.data.sampler.Sampler):
     r"""Samples elements with same distortion type
 
     Arguments:
@@ -239,16 +237,18 @@ class CIFAR100(torchvision.datasets.CIFAR100):
         return input, target
 
 
-class Set5(Dataset):
+class Set5(torch.utils.data.Dataset):
     """
     Args:
         root (str) – Root directory path.
         train (bool): Flag to return train if True and validation if False
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
+    _folder = "Set5"
     def __init__(
-            self, root="data/raw/Set5", train=False, transform=None):
+            self, root="data/raw", train=False, transform=None):
         assert train is False, "This dataset can be used only for validation"
+        root = os.path.join(root, self._folder)
         walker = walk_files(
             root, suffix=".png", prefix=True, remove_suffix=False
         )
@@ -289,20 +289,23 @@ class Set14(Set5):
         train (bool): Flag to return train if True and validation if False
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
+    _folder = "Set14"
     def __init__(
-            self, root="data/raw/Set14", train=False, transform=None):
+            self, root="data/raw", train=False, transform=None):
         super().__init__(root, train, transform)
 
 
-class Urban100(Dataset):
+class Urban100(torch.utils.data.Dataset):
     """
     Args:
         root (str) – Root directory path.
         train (bool): Flag to return train if True and validation if False
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
-    def __init__(
-            self, root="data/raw/Urban100", train=False, transform=None):
+    _folder = "Urban100"
+    def __init__(self, root="data/raw", train=False, transform=None):
+        root = os.path.join(root, _folder)
+
         walker = walk_files(
             root, suffix=".png", prefix=True, remove_suffix=False
         )
@@ -349,8 +352,9 @@ class Manga109(Urban100):
         train (bool): Flag to return train if True and validation if False
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
+    _folder = "Manga109"
     def __init__(
-            self, root="data/raw/Manga109", train=False, transform=None):
+            self, root="data/raw", train=False, transform=None):
         super().__init__(root, train, transform)
 
 
@@ -361,12 +365,13 @@ class COIL100(Urban100):
         train (bool): Flag to return train if True and validation if False
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
+    _folder = "coil-100"
     def __init__(
             self, root="data/raw/coil-100", train=False, transform=None):
         super().__init__(root, train, transform)
 
 
-class DIV2K(Dataset):
+class DIV2K(torch.utils.data.Dataset):
     """
     Args:
         root (str) – Root directory path.
@@ -415,12 +420,13 @@ class BSDS100(Urban100):
         train (bool): Flag to return train if True and validation if False
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
+    _folder = "BSDS100"
     def __init__(
-            self, root="data/raw/BSDS100", train=False, transform=None):
+            self, root="data/raw", train=False, transform=None):
         super().__init__(root, train, transform)
 
 
-class TinyImageNet(Dataset):
+class TinyImageNet(torch.utils.data.Dataset):
     """Tiny ImageNet data set available from `http://cs231n.stanford.edu/tiny-imagenet-200.zip`.
 
     Args:
@@ -428,10 +434,10 @@ class TinyImageNet(Dataset):
         train (bool): Flag to return train if True and validation if False
         transform (callable) – A function/transform that takes in the input and transforms it.
     """
+    _folder = "tiny-imagenet-200"
     def __init__(
-            self, root="data/raw/tiny-imagenet-200", train=True, transform=None):
-
-        root += "/train" if train else "/val"
+            self, root="data/raw", train=True, transform=None):
+        root = os.path.join(root, self._folder, "train" if train else "val")
         walker = walk_files(
             root, suffix=".JPEG", prefix=True, remove_suffix=False
         )
@@ -464,7 +470,7 @@ class TinyImageNet(Dataset):
         return len(self.files)
 
 
-class MedicalDecathlon(Dataset):
+class MedicalDecathlon(torch.utils.data.Dataset):
     """Used to access images from MedicalDecathlon challenge
     """
     def __init__(
@@ -520,47 +526,14 @@ def get_dataloader(
         dataloader
     """
 
-    # Get datasets
-    all_datasets = []
-    if "mnist" in datasets:
+    # Get dataset
+    dataset = DATASET_FROM_NAME[dataset](train=train, transform=transform)
+
+    if "mnist" in dataset:
         dataset = MNIST("data/raw/", train, transform)
         all_datasets.append(dataset)
 
-    if "fashion_mnist" in datasets:
-        dataset = FashionMNIST("data/raw/", train, transform)
-        all_datasets.append(dataset)
 
-    if "cifar10" in datasets:
-        dataset = CIFAR10("data/raw/", train, transform)
-        all_datasets.append(dataset)
-
-    if "cifar100" in datasets:
-        dataset = CIFAR100("data/raw/", train, transform)
-        all_datasets.append(dataset)
-
-    if "tinyimagenet" in datasets:
-        dataset = TinyImageNet("data/raw/tiny-imagenet-200", train, transform)
-        all_datasets.append(dataset)
-
-    if "div2k" in datasets:
-        dataset = DIV2K("data/raw", train, transform)
-        all_datasets.append(dataset)
-
-    if "coil100" in datasets:
-        dataset = COIL100("data/raw/coil-100", train, transform)
-        all_datasets.append(dataset)
-
-    if "bsds100" in datasets:
-        dataset = BSDS100("data/raw/BSDS100", train, transform)
-        all_datasets.append(dataset)
-
-    if "set5" in datasets:
-        dataset = Set5("data/raw/Set5", train, transform)
-        all_datasets.append(dataset)
-
-    if "set14" in datasets:
-        dataset = Set14("data/raw/Set14", train, transform)
-        all_datasets.append(dataset)
 
     if "medicaldecathlon" in datasets:
         dataset = MedicalDecathlon("data/raw/decathlon", "colon.h5", train, transform)
@@ -570,7 +543,7 @@ def get_dataloader(
     all_datasets = reduce(lambda x, y: x + y, all_datasets)
 
     if train:
-        dataloader = DataLoader(
+        dataloader = torch.utils.data.DataLoader(
             all_datasets,
             batch_size=batch_size,
             shuffle=True,
@@ -578,7 +551,7 @@ def get_dataloader(
             drop_last=True,
             pin_memory=True)
     else:
-        dataloader = DataLoader(
+        dataloader = torch.utils.data.DataLoader(
             all_datasets,
             batch_size=batch_size,
             shuffle=False,
@@ -587,3 +560,17 @@ def get_dataloader(
 
     logger.info(f"\nUsing datasets: {datasets}. {'Train' if train else 'Validation'} size: {len(all_datasets)}.")
     return dataloader
+
+DATASET_FROM_NAME = {
+    "mnist": MNIST,
+    "fashion_mnist": FashionMNIST,
+    "cifa10": CIFAR10,
+    "cifar100": CIFAR100,
+    "tinyimagenet": TinyImageNet,
+    "div2k": DIV2K,
+    "coil100": COIL100,
+    "bsds100": BSDS100,
+    "set5": Set5,
+    "set14": Set14,
+    "medicaldecathlon": MedicalDecathlon,
+}
