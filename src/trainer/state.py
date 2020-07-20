@@ -21,9 +21,7 @@ class GANState:
         models: Generator and Discriminator models
         optimizers: Generator and Discriminator optimizers
         criterions: Generator and Discrimitor losses
-        metrics_gen (List): Optional metrics to measure generator performance during training. 
-            All metrics must have `name` attribute. Defaults to None.
-        metrics_disc (List): Optional metrics to measure discriminator performance during training. 
+        metrics: Optional metrics to measure generator performance. 
             All metrics must have `name` attribute. Defaults to None.
     """
 
@@ -35,16 +33,13 @@ class GANState:
         models: List = None,
         optimizers: Lst = None,
         criterions: List = None,
-        metrics_gen: List = None,
-        metrics_disc: List = None,
+        metrics: List = None,
+
     ):
         assert len(models) == len(optimizers) == len(criterions) == 2, "Only 2 models are supported for now"
 
         # Base
-        self.metrics = {
-            "generator": listify(metrics_gen),
-            "optimizer": listify(metrics_disc),
-        }
+        self.metrics = listify(metrics)
 
         self.models = {
             "generator": models[0],
@@ -59,7 +54,6 @@ class GANState:
             "discriminator": criterions[1],
         }
 
-
         # Data pipeline
         self.input = None
         self.output = {key: None for key in NAMES} 
@@ -68,18 +62,18 @@ class GANState:
         self.num_epochs = 1
         self.epoch = 0
         self.train_loss = {key: None for key in NAMES} 
-        self.train_metrics = {key: None for key in NAMES} 
-
+        self.train_metrics = None
 
         self.val_loss = {key: None for key in NAMES} 
-        self.val_metrics = {key: None for key in NAMES} 
+        self.val_metrics = None
 
         self.is_train = True
         self.epoch_size = None
         self.step = None
         self.batch_size = 0
 
-        self.metric_meters = {key: [AverageMeter(name=m.name) for m in self.metrics[key] for key in NAMES}
+        # Use average meter for ordinary metrics
+        self.metric_meters = [AverageMeter(name=m.name) for m in self.metrics]
         self.loss_meter = {key: AverageMeter("loss") for key in NAMES} 
 
         # For Timer callback
