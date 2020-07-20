@@ -26,6 +26,7 @@ def get_parser():
 #     add_arg("--std", type=float, nargs="+", default=[1., 1., 1.],
 #             help="STD used to normalize data into [-1, 1] or N(0, 1)")
     add_arg("--aug_type", type=str, default="light")
+    add_arg("--debug", dest="debug", default=False, action="store_true", help="Make short epochs")
     add_arg("--task", type=str, default="denoise", choices=["denoise", "deblur", "sr"])
     add_arg("--data_mean", type=float, default=[0.5, 0.5, 0.5], nargs=3,
             help="Mean used for normalization")
