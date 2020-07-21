@@ -29,12 +29,11 @@ class GANState:
     def __init__(
         self,
         *,
-        models: List = None,
-        optimizers: List = None,
-        criterions: List = None,
+        models: List = [None, None],
+        optimizers: List = [None, None],
+        criterions: List = [None, None],
         metrics: List = None,
     ):
-        assert len(models) == len(optimizers) == len(criterions) == 2, "Only 2 models are supported for now"
 
         # Base
         self.metrics = listify(metrics)

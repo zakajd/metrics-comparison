@@ -127,12 +127,12 @@ class PhasesScheduler(Callback):
         }
     """
 
-    def __init__(self, phases: Dict[List[Dict]], change_every: int = 50):
+    def __init__(self, phases: Dict, change_every: int = 50):
         self.change_every = change_every
         self.current_lr = {key: None for key in NAMES}
         self.current_mom = {key: None for key in NAMES}
 
-        self.phases = {key: list(map(self.format_phase, phases[key])) for key in NAMES}
+        self.phases = {key: list(map(self._format_phase, phases[key])) for key in NAMES}
         self.phase = {key: self.phases[key][0] for key in NAMES}
         # Assume that number of epochs for both models are equal
         self.tot_epochs = max([max(p["ep"]) for p in self.phases["generator"]])
@@ -185,15 +185,17 @@ class PhasesScheduler(Callback):
         return new_lr, new_mom
 
     def on_epoch_begin(self):
-        new_phase = None
-        for phase in reversed(self.phases):
-            if self.state.epoch >= phase["ep"][0]:
-                new_phase = phase
-                break
-        if new_phase is None:
-            raise Exception("Epoch out of range")
-        else:
-            self.phase = new_phase
+        new_phase = {}
+        for key in NAMES:
+            new_phase[key] = None
+            for phase in reversed(self.phases[key]):
+                if self.state.epoch >= phase["ep"][0]:
+                    new_phase[key] = phase
+                    break
+            if new_phase[key] is None:
+                raise Exception("Epoch out of range")
+            else:
+                self.phase[key] = new_phase[key]
 
     def on_batch_begin(self):
         for key in NAMES:
