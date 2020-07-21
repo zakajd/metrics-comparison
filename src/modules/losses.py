@@ -3,7 +3,9 @@ Implementation of VGG16 loss, originaly used for style transfer and usefull in m
 It's work in progress, no guarantees that code will work
 """
 from typing import List
+import functools
 
+import piq
 import torch
 import torch.nn as nn
 
@@ -35,6 +37,16 @@ class WeightedLoss(torch.nn.modules.loss._Loss):
         return loss * self.weight[0]
 
 
+class PSNR(torch.nn.Module):
+    def __init(self, data_range=1.0, reduction='mean', convert_to_greyscale: bool = False):
+        super().__init__()
+        self.metric = functools.partial(
+            piq.psnr, data_range=data_range, reduction=reduction, convert_to_greyscale=convert_to_greyscale)
+
+    def forward(self, prediction: torch.Tensor, target: torch.Tensor):
+        self.metric(prediction, target)
+
+
 class GeneratorWGAN(nn.Module):
     r"""Compute loss for Generator model using equation for WGAN-GP
     Add additional regularization by adding MSE loss
@@ -42,6 +54,7 @@ class GeneratorWGAN(nn.Module):
         weights: 2 float numbers, weight of MSE and Adversarial components
     """
     def __init__(self, weights: List[float] = [1.0, 1e-4]):
+        super().__init__()
         self.criterion = nn.MSELoss(reduction='mean')
         self.weights = weights
 
@@ -72,7 +85,6 @@ class DiscriminatorWGAN(nn.Module):
         interpolate (bool): Interpolates between target and output images before GP
     """
     def __init__(self, gp=True, interpolate=False):
-
         super().__init__()
         self.gp = gp
         self.interpolate = interpolate
