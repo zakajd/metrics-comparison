@@ -44,3 +44,18 @@ def crop_patches(images: torch.Tensor, size=64, stride=32):
     patches = images.data.unfold(1, 3, 3).unfold(2, size, stride).unfold(3, size, stride)
     patches = patches.reshape(-1, 3, size, size)
     return patches
+
+
+class ToCudaLoader:
+    def __init__(self, loader):
+        self.loader = loader
+
+    def __iter__(self):
+        for batch in self.loader:
+            if isinstance(batch, (tuple, list)):
+                yield [i.cuda(non_blocking=True) for i in batch]
+            else:
+                yield batch.cuda(non_blocking=True)
+
+    def __len__(self):
+        return len(self.loader)

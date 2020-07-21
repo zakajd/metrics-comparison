@@ -8,7 +8,7 @@ import torchvision
 from loguru import logger
 import albumentations.pytorch as albu_pt
 
-from src.data.utils import walk_files
+from src.data.utils import walk_files, ToCudaLoader
 
 
 class DistortionSampler(torch.utils.data.sampler.Sampler):
@@ -548,6 +548,9 @@ def get_dataloader(
             shuffle=False,
             num_workers=0,
             pin_memory=True)
+
+    # Transfer batches to GPU
+    dataloader = ToCudaLoader(dataloader)
 
     logger.info(f"\nUsing dataset: {dataset}. {'Train' if train else 'Validation'} size: {len(dataset)}.")
     return dataloader

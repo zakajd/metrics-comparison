@@ -67,7 +67,7 @@ class GANTrainer:
             self.state.epoch = epoch
             self.callbacks.on_epoch_begin()
             for key in NAMES:
-                self.state.model[key].train()
+                self.state.models[key].train()
             self._run_loader(train_loader, steps=steps_per_epoch)
             for key in NAMES:
                 self.state.train_loss[key] = copy(self.state.loss_meter[key])
@@ -84,7 +84,7 @@ class GANTrainer:
     def evaluate(self, loader, steps=None):
         self.state.is_train = False
         for key in NAMES:
-            self.state.model[key].eval()
+            self.state.models[key].eval()
         self._run_loader(loader, steps=steps)
         return self.state.loss_meter.avg, [m.avg for m in self.state.metric_meters]
 
@@ -121,21 +121,21 @@ class GANTrainer:
             self.state.optimizers["discriminator"].step()
 
         # Update metrics and loss
-        for key in self.NAMES:
+        for key in NAMES:
             self.state.loss_meter[key].update(to_numpy(loss[key]))
             for metric, meter in zip(self.state.metrics[key], self.state.metric_meters[key]):
                 meter.update(to_numpy(metric(output, target)))  # .squeeze() ??
 
     def _reset_state(self):
         r"""Resets losses, metrics, times, etc."""
-        for key in self.NAMES:
+        for key in NAMES:
             self.state.loss_meter[key].reset()
-        for metric in self.state.metric_meters:
+        for i, metric in enumerate(self.state.metric_meters):
             if isinstance(metric, AverageMeter):
                 metric.reset()
             else:
                 # Delete if it's not an average meter
-                self.state.metric_meters.pop(metric)
+                del self.state.metric_meters[i]
 
         self.state.timer.reset()
 
