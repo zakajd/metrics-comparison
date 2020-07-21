@@ -29,7 +29,8 @@ def main():
         ],
     }
     logger.configure(**config)
-    logger.info(f"Parameters used for training: {vars(hparams)}")
+    # Use print instead of logger to have alphabetic order.
+    print(f"Parameters used for training: {vars(hparams)}")
 
     # Fix all seeds for reprodusability
     pt.utils.misc.set_random_seed(hparams.seed)
@@ -64,8 +65,8 @@ def main():
 
     # Feature metrics are defined as a callback
     feature_clb_vgg16 = clbs.FeatureMetrics(feature_extractor="vgg16", metrics=hparams.feature_metrics)
-    feature_clb_vgg19 = clbs.FeatureMetrics(feature_extractor="vgg19", metrics=hparams.feature_metrics),
-    feature_clb_inception = clbs.FeatureMetrics(feature_extractor="inception", metrics=hparams.feature_metrics),
+    feature_clb_vgg19 = clbs.FeatureMetrics(feature_extractor="vgg19", metrics=hparams.feature_metrics)
+    feature_clb_inception = clbs.FeatureMetrics(feature_extractor="inception", metrics=hparams.feature_metrics)
 
     # Scheduler is an advanced way of planning experiment
     sheduler = clbs.PhasesScheduler(hparams.phases)
@@ -83,8 +84,8 @@ def main():
             feature_clb_inception,
             clbs.TensorBoard(hparams.outdir, log_every=40, num_images=2),
 
-            # List of CheckpointSaver, one per metric
-            clbs.CheckpointSaver(hparams.outdir, save_name=f"model_{monitor}_{ep}.chpn", monitor='loss', minimize=True),
+            # List of CheckpointSavers, one per metric
+            clbs.CheckpointSaver(hparams.outdir, save_name="model_{monitor}_{ep}_{metric:.2f}.chpn", monitor='loss', minimize=True),
             sheduler,
         ],
         metrics=metrics,

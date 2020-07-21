@@ -17,9 +17,9 @@ def get_parser():
     # General
     add_arg("--seed", type=int, default=42, help="Random seed for reproducable results")
     add_arg("--device", type=str, default="0", help="Device used for training. Can be `1, 2` or `-1`.")
-    add_arg("--train_dataset", default=["cifar10"], type=str, nargs="+",
+    add_arg("--train_dataset", default="cifar10", type=str,
             help="Dataset to use for training. Default is CIFAR10")
-    add_arg("--val_datasets", default=["set5"], type=str, nargs="+",
+    add_arg("--val_dataset", default="set5", type=str,
             help="Datasets to use for validation. Default is only Set5")
 #     add_arg("--mean", type=float, nargs="+", default=[0.5, 0.5, 0.5],
 #             help="Mean used to normalize data into [-1, 1] or N(0, 1)")
@@ -53,6 +53,11 @@ def get_parser():
             metavar='W', help='weight decay', dest='weight_decay')
     add_arg("--metrics", type=eval, help="Image metrics and their parameters")
     add_arg("--feature_metrics", type=eval, help="Feature metrics and their parameters")
+    add_arg(
+        "--phases",
+        type=eval,
+        help="Specify epoch order of data resize and learning rate schedule",
+    )
 
     return parser
 

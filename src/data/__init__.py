@@ -5,7 +5,7 @@ from src.data.datasets import (
     COIL100, DIV2K, BSDS100, TinyImageNet, MedicalDecathlon,
     get_dataloader,
 )
-from src.data.utils import crop_patches, walk_files
+from src.data.utils import crop_patches, walk_files, ToCudaLoader
 
 
 __all__ = [
@@ -13,5 +13,5 @@ __all__ = [
     "DistortionSampler", "TID2013", "KADID10k",
     "MNIST", "FashionMNIST", "CIFAR10", "CIFAR100", "Set5", "Set14", "Urban100", "Manga109",
     "COIL100", "DIV2K", "BSDS100", "TinyImageNet", "MedicalDecathlon", "get_dataloader",
-    "crop_patches", "walk_files"
+    "crop_patches", "walk_files", "ToCudaLoader"
 ]

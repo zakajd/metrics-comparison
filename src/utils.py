@@ -2,7 +2,7 @@ import piq
 import torch
 import torchvision
 from src.modules.wrappers import InceptionV3Wrapper, BRISQUEWrapper, inception_score_wrapper
-
+from src.modules.losses import PSNR
 
 EXTRACTOR_FROM_NAME = {
     "vgg16": torchvision.models.vgg16(pretrained=True, progress=False).features,
@@ -28,7 +28,8 @@ METRIC_FROM_NAME = {
     "msid": piq.MSID,
     "ms-ssim": piq.MultiScaleSSIMLoss,
     "ms-gmsd": piq.MultiScaleGMSDLoss,
-    "psnr": piq.psnr,
+    # "psnr": piq.psnr,
+    "psnr": PSNR,
     "ssim": piq.SSIMLoss,
     "style": piq.StyleLoss,
     "style_ap": piq.StyleLoss,
