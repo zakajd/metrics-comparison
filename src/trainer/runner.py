@@ -77,7 +77,7 @@ class GANTrainer:
                 self.evaluate(val_loader, steps=val_steps)
                 for key in NAMES:
                     self.state.val_loss[key] = copy(self.state.loss_meter[key])
-                    self.state.val_metrics[key] = [copy(m) for m in self.state.metric_meters[key]]
+                self.state.val_metrics = [copy(m) for m in self.state.metric_meters]
             self.callbacks.on_epoch_end()
         self.callbacks.on_end()
 
@@ -86,7 +86,7 @@ class GANTrainer:
         for key in NAMES:
             self.state.models[key].eval()
         self._run_loader(loader, steps=steps)
-        return self.state.loss_meter.avg, [m.avg for m in self.state.metric_meters]
+        return self.state.loss_meter["generator"].avg, [m.avg for m in self.state.metric_meters]
 
     def _make_step(self):
 
@@ -104,16 +104,23 @@ class GANTrainer:
             "discriminator": self.state.criterions["discriminator"](output, target, fake_output, real_output),
         }
         if self.state.is_train:
+            # print("\nOut, Trgt, Fake, Real", output.shape, target.shape, fake_output.shape, real_output.shape)
+            # print("\n", output.min(), output.max(), target.min(), target.max())
+
             # ---------- TRAIN GENERATOR --------------
             self.state.optimizers["generator"].zero_grad()
-            loss["generator"].backward()
+            loss["generator"] = self.state.criterions["generator"](output, target, fake_output, real_output)
+            loss["generator"].backward(retain_graph=True)
             if self.gradient_clip_val > 0:
                 torch.nn.utils.clip_grad_norm_(
                     self.state.models["generator"].parameters(), self.gradient_clip_val)
             self.state.optimizers["generator"].step()
 
             # ---------- TRAIN DISCRIMINATOR --------------
+            output = self.state.models["generator"](data)
+            fake_output = self.state.models["discriminator"](output)
             self.state.optimizers["discriminator"].zero_grad()
+            loss["discriminator"] = self.state.criterions["discriminator"](output, target, fake_output, real_output)
             loss["discriminator"].backward()
             if self.gradient_clip_val > 0:
                 torch.nn.utils.clip_grad_norm_(
@@ -123,20 +130,22 @@ class GANTrainer:
         # Update metrics and loss
         for key in NAMES:
             self.state.loss_meter[key].update(to_numpy(loss[key]))
-            for metric, meter in zip(self.state.metrics[key], self.state.metric_meters[key]):
-                meter.update(to_numpy(metric(output, target)))  # .squeeze() ??
+        output_denormalized, target_denormalized = output.sigmoid(), target.sigmoid()
+        for metric, meter in zip(self.state.metrics, self.state.metric_meters):
+            meter.update(to_numpy(metric(output_denormalized, target_denormalized)))
 
     def _reset_state(self):
         r"""Resets losses, metrics, times, etc."""
         for key in NAMES:
             self.state.loss_meter[key].reset()
+        # DummyAverageMeter is added to the end, so just delete last part
+        counter = 0
         for i, metric in enumerate(self.state.metric_meters):
             if isinstance(metric, AverageMeter):
                 metric.reset()
             else:
-                # Delete if it's not an average meter
-                del self.state.metric_meters[i]
-
+                counter += 1
+        self.state.metric_meters = self.state.metric_meters[:-counter]
         self.state.timer.reset()
 
     def _run_loader(self, loader, steps=None):

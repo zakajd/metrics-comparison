@@ -50,7 +50,7 @@ METRIC_FROM_NAME = {
     #     layers=['conv1_1', 'conv2_1', 'conv3_1', 'conv4_1', 'conv5_1'],
     #     weights=[0.2, 0.2, 0.2, 0.2, 0.2],
     #     normalize_features=True,
-    #     use_average_pooling=True,
+    #     replace_pooling=True,
     #     reduction='none'),
 
     # "content_vgg19": piq.ContentLoss(
@@ -64,7 +64,7 @@ METRIC_FROM_NAME = {
     #     layers=['conv1_2', 'conv2_2', 'conv3_4', 'conv4_4', 'conv5_4'],
     #     weights=[0.2, 0.2, 0.2, 0.2, 0.2],
     #     normalize_features=True,
-    #     use_average_pooling=True,
+    #     replace_pooling=True,
     #     reduction='none'),
 
     # "style_vgg16": piq.StyleLoss(
@@ -80,7 +80,7 @@ METRIC_FROM_NAME = {
     #     normalize_features=False,
     #     reduction='none'),
 
-    "lpips_ap": piq.LPIPS(use_average_pooling=True, reduction="none"),
+    "lpips_ap": piq.LPIPS(replace_pooling=True, reduction="none"),
     "dists": piq.DISTS(reduction="none"),
 
     # No reference

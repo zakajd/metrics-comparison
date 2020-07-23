@@ -8,8 +8,14 @@ class BRISQUEWrapper(piq.BRISQUELoss):
         return super().forward(prediction)
 
 
-def inception_score_wrapper(prediction_features: torch.Tensor, target_features: torch.Tensor, num_splits: int = 10):
-    return piq.inception_score(features=prediction_features, num_splits=num_splits)
+class ISWrapper(torch.nn.Module):
+    def __init__(self, num_splits: int = 5):
+        super().__init__()
+        self.num_splits = num_splits
+
+    def forward(self, prediction_features: torch.Tensor, target_features: torch.Tensor):
+        mean, std = piq.inception_score(features=prediction_features, num_splits=self.num_splits)
+        return mean
 
 
 # Return tensor with features, not list
@@ -19,8 +25,10 @@ class InceptionV3Wrapper(piq.feature_extractors.InceptionV3):
 
 
 class DummyAverageMeter:
-    def __init__(self, value):
+    def __init__(self, value, name):
         self.avg = value
+        self.name = name
+    
 
 
 class AverageMeter:

@@ -37,9 +37,8 @@ class WeightedLoss(torch.nn.modules.loss._Loss):
         return loss * self.weight[0]
 
 
-class PSNR(torch.nn.Module):
-    def __init(self, data_range=1.0, reduction='mean', convert_to_greyscale: bool = False):
-        super().__init__()
+class PSNR(nn.Module):
+    def __init__(self, data_range=1.0, reduction='mean', convert_to_greyscale: bool = False):
         self.metric = functools.partial(
             piq.psnr, data_range=data_range, reduction=reduction, convert_to_greyscale=convert_to_greyscale)
 

@@ -226,7 +226,7 @@ class ConsoleLogger(Callback):
         for key in NAMES:
             desc.update({f"{key} loss": f"{self.state.loss_meter[key].avg:.3f}"})
 
-        desc.update({m.name: f"{m.avg:.3f}" for m in self.state.metric_meters})
+        # desc.update({m.name: f"{m.avg:.3f}" for m in self.state.metric_meters})
         self.pbar.set_postfix(**desc)
         self.pbar.update()
         self.pbar.close()
@@ -236,7 +236,7 @@ class ConsoleLogger(Callback):
         for key in NAMES:
             desc.update({f"{key} loss": f"{self.state.loss_meter[key].avg_smooth:.3f}"})
 
-        desc.update({m.name: f"{m.avg_smooth:.3f}" for m in self.state.metric_meters})
+        # desc.update({m.name: f"{m.avg_smooth:.3f}" for m in self.state.metric_meters})
         self.pbar.set_postfix(**desc)
         self.pbar.update()
 
@@ -275,15 +275,13 @@ class TensorBoard(Callback):
         if self.state.is_train and (self.current_step % self.log_every == 0):
             for key in NAMES:
                 self.writer.add_scalar(f"train_/{key}_loss", self.state.loss_meter[key].val, self.current_step)
-                for m in self.state.metric_meters[key]:
-                    self.writer.add_scalar(f"train_/{m.name}", m.val, self.current_step)
+            for m in self.state.metric_meters:
+                self.writer.add_scalar(f"train_/{m.name}", m.val, self.current_step)
 
     def on_epoch_end(self):
         self.writer.add_scalar("train/epoch", self.state.epoch, self.current_step)
         for key in NAMES:
             self.writer.add_scalar(f"train/{key}_loss", self.state.train_loss[key].avg, self.current_step)
-            for m in self.state.train_metrics[key]:
-                self.writer.add_scalar(f"train/{m.name}", m.avg, self.current_step)
 
             lr = sorted([pg["lr"] for pg in self.state.optimizers[key].param_groups])[-1]  # largest lr
             self.writer.add_scalar(f"train_/{key}_lr", lr, self.current_step)
@@ -293,17 +291,22 @@ class TensorBoard(Callback):
                 continue
 
             self.writer.add_scalar(f"val/{key}_loss", self.state.val_loss[key].avg, self.current_step)
-            for m in self.state.val_metrics[key]:
+
+        for m in self.state.train_metrics:
+            self.writer.add_scalar(f"train/{m.name}", m.avg, self.current_step)
+
+        if self.state.val_loss["generator"] is not None:
+            for m in self.state.val_metrics:
                 self.writer.add_scalar(f"val/{m.name}", m.avg, self.current_step)
 
         # Save images only on validation epochs
         if not self.state.is_train:
-            data, target = self.first_input
-            output = self.state.model(data)
+            data, target = self.input
+            output = self.state.models["generator"](data)
 
             for i in range(self.num_images):
-                # Concat along X axis
-                final_image = torch.cat([data[i], output[i], target[i]], dim=2)
+                # Concat along X axis and clip to [0, 1] range
+                final_image = torch.cat([data[i], output[i], target[i]], dim=2).sigmoid()
                 self.writer.add_image(f'val_image/{i}', final_image, self.state.epoch)
 
     def on_end(self):
@@ -358,7 +361,7 @@ class CheckpointSaver(Callback):
             if self.verbose:
                 logger.info(f"Epoch {ep:2d}: best {self.monitor} improved from {self.best:.4f} to {current:.4f}")
             self.best = current
-            save_name = os.path.join(self.save_dir, self.save_name.format(ep=ep, metric=current))
+            save_name = os.path.join(self.save_dir, self.save_name.format(monitor=self.monitor, ep=ep, metric=current))
             self._save_checkpoint(save_name)
 
     def _save_checkpoint(self, path):
@@ -425,7 +428,7 @@ class FeatureMetrics(Callback):
     """
     def __init__(self, feature_extractor: str, metrics: List) -> None:
         # Define feature extractor
-        self.feature_extractor = EXTRACTOR_FROM_NAME[feature_extractor]
+        self.feature_extractor = EXTRACTOR_FROM_NAME[feature_extractor].cuda()
 
         self.metric_names = metrics[::2]
         self.metrics = [
@@ -443,6 +446,8 @@ class FeatureMetrics(Callback):
         self.target_features = []
 
     def on_batch_end(self):
+        if self.state.is_train:
+            return
         _, target = self.state.input
         prediction = self.state.output["generator"]
 
@@ -450,28 +455,30 @@ class FeatureMetrics(Callback):
         prediction_patches = crop_patches(prediction, size=96, stride=32)
         target_patches = crop_patches(target, size=96, stride=32)
 
-        # Extract features from prediction patches
-        patch_loader = prediction_patches.view(-1, 10, *prediction_patches.shape[-3:])
+        dataset = torch.utils.data.TensorDataset(prediction_patches, target_patches)
+        loader = torch.utils.data.DataLoader(dataset, batch_size=10)
+        # Extract features
+        
         with torch.no_grad():
-            for patches in patch_loader:
-                features = torch.nn.functional.adaptive_avg_pool2d(self.feature_extractor(patches), 1)
-                self.prediction_features.append(features.squeeze())
+            for batch in loader:
+                pred_patches, trgt_patches = batch
+                pred_features = torch.nn.functional.adaptive_avg_pool2d(self.feature_extractor(pred_patches), 1)
+                trgt_features = torch.nn.functional.adaptive_avg_pool2d(self.feature_extractor(trgt_patches), 1)
 
-        # Extract features from target patches
-        patch_loader = target_patches.view(-1, 10, *target_patches.shape[-3:])
-        with torch.no_grad():
-            for patches in patch_loader:
-                features = torch.nn.functional.adaptive_avg_pool2d(self.feature_extractor(patches), 1)
-                self.target_features.append(features.squeeze())
+                self.prediction_features.append(pred_features.squeeze())
+                self.target_features.append(trgt_features.squeeze())
+
 
     def on_loader_end(self):
+        if self.state.is_train:
+            return
         # Reduce collected features
         prediction_features = torch.cat(self.prediction_features, dim=0)
         target_features = torch.cat(self.target_features, dim=0)
 
         for name, metric in zip(self.metric_names, self.metrics):
             score = metric(prediction_features, target_features)
-            self.state.metric_meters[name] = DummyAverageMeter(value=score.cpu().numpy())
+            self.state.metric_meters.append(DummyAverageMeter(value=score.cpu().numpy(), name=name))
 
 
 # class FileLogger(Callback):
