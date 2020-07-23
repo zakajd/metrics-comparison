@@ -1,7 +1,7 @@
 import piq
 import torch
 import torchvision
-from src.modules.wrappers import InceptionV3Wrapper, BRISQUEWrapper, inception_score_wrapper
+from src.modules.wrappers import InceptionV3Wrapper, BRISQUEWrapper, ISWrapper
 from src.modules.losses import PSNR
 
 EXTRACTOR_FROM_NAME = {
@@ -12,28 +12,39 @@ EXTRACTOR_FROM_NAME = {
 
 
 METRIC_FROM_NAME = {
-    "brisque": BRISQUEWrapper,
-    "content": piq.ContentLoss,
-    "content_ap": piq.ContentLoss,
-    "dists": piq.DISTS,
-    "fsim": piq.FSIMLoss,
-    "fid": piq.FID,
-    "gs": piq.GS,
-    "gmsd": piq.GMSDLoss,
-    "is_metric": inception_score_wrapper,
-    "is": piq.IS,
-    "kid": piq.KID,
+    # FR
     "mae": torch.nn.L1Loss,
     "mse": torch.nn.MSELoss,
-    "msid": piq.MSID,
-    "ms-ssim": piq.MultiScaleSSIMLoss,
-    "ms-gmsd": piq.MultiScaleGMSDLoss,
-    # "psnr": piq.psnr,
     "psnr": PSNR,
     "ssim": piq.SSIMLoss,
+    "ms-ssim": piq.MultiScaleSSIMLoss,
+    # "iw-ssim": piq.iw_ssim,
+    "gmsd": piq.GMSDLoss,
+    "ms-gmsd": piq.MultiScaleGMSDLoss,
+    "ms-gmsdc": piq.MultiScaleGMSDLoss,
+    "fsim": piq.FSIMLoss,
+    "fsimc": piq.FSIMLoss,
+    "vsi": piq.VSILoss,
+    "mdsi": piq.MDSILoss,
+    "vif": piq.VIFLoss,
+
+    "content": piq.ContentLoss,
+    "content_ap": piq.ContentLoss,
     "style": piq.StyleLoss,
     "style_ap": piq.StyleLoss,
-    "vif": piq.VIFLoss,
+    "lpips": piq.LPIPS,
+    "dists": piq.DISTS,
+
+    # NR
+    "brisque": BRISQUEWrapper,
+
+    # Distrib based
+    "is_metric": ISWrapper,
+    "is": piq.IS,
+    "fid": piq.FID,
+    "gs": piq.GS,
+    "kid": piq.KID,
+    "msid": piq.MSID,
 }
 
 

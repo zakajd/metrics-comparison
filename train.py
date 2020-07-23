@@ -7,11 +7,11 @@ import torch
 from loguru import logger
 import pytorch_tools as pt
 
+from src.modules.functional import init_metrics
 from src.arg_parser import parse_args
 from src.data import get_dataloader, get_aug
 from src.modules.losses import GeneratorWGAN, DiscriminatorWGAN
 from src.modules.models import MODEL_FROM_NAME, Discriminator
-from src.utils import METRIC_FROM_NAME
 from src.trainer import GANTrainer
 import src.trainer.callbacks as clbs
 
@@ -43,7 +43,7 @@ def main():
     generator = MODEL_FROM_NAME[hparams.model](**hparams.model_params).cuda()
     discriminator = Discriminator().cuda()
     logger.info(f"Generator size: {pt.utils.misc.count_parameters(generator)[0] / 1e6:.02f}M")
-    logger.info(f"Discriminator size: {pt.utils.misc.count_parameters(generator)[0] / 1e6:.02f}M")
+    logger.info(f"Discriminator size: {pt.utils.misc.count_parameters(discriminator)[0] / 1e6:.02f}M")
 
     generator_optimizer = torch.optim.Adam(
         generator.parameters(), weight_decay=hparams.weight_decay, amsgrad=True)  # Get LR from phases later
@@ -55,13 +55,8 @@ def main():
     discriminator_loss = DiscriminatorWGAN()  # !!! Init params
 
     # Init per-image metrics and add names
-    metric_names = hparams.metrics[::2]
-    metrics = [
-        METRIC_FROM_NAME[name](**kwargs) for name, kwargs in zip(hparams.metrics[::2], hparams.metrics[1::2])
-    ]
-    for metric, name in zip(metrics, metric_names):
-        metric.name = name
-    logger.info(f"Metrics {metrics}")
+    metrics = init_metrics(hparams.metrics)
+    logger.info(f"Metrics: {[m.name for m in metrics]}")
 
     # Feature metrics are defined as a callback
     feature_clb_vgg16 = clbs.FeatureMetrics(feature_extractor="vgg16", metrics=hparams.feature_metrics)
@@ -105,6 +100,7 @@ def main():
     # Train
     trainer.fit(
         train_loader,
+        epochs=sheduler.tot_epochs,
         val_loader=val_loader,
         steps_per_epoch=2 if hparams.debug else None,
         val_steps=2 if hparams.debug else None,
