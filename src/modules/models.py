@@ -125,7 +125,7 @@ class DnCNN(nn.Module):
             layers.append(
                 nn.Sequential(
                     nn.Conv2d(num_features, num_features, kernel_size=3, padding=1),
-                    nn.BatchNorm2d(num_features),
+                    # nn.BatchNorm2d(num_features),
                     nn.ReLU(inplace=True)
                 )
             )
@@ -180,19 +180,19 @@ class Discriminator(nn.Module):
         super().__init__()
 
         self.main = nn.Sequential(
-            # input is 3 x 32 x 32
+
             nn.Conv2d(3, nf * 2, 4, 2, 1, bias=False),
             nn.BatchNorm2d(nf * 2),
             nn.LeakyReLU(0.2, inplace=True),
-            # state size. (nf * 2) x 16 x 16
+
             nn.Conv2d(nf * 2, nf * 4, 4, 2, 1, bias=False),
             nn.BatchNorm2d(nf * 4),
             nn.LeakyReLU(0.2, inplace=True),
-            # state size. (nf * 4) x 8 x 8
+
             nn.Conv2d(nf * 4, nf * 8, 4, 2, 1, bias=False),
             nn.BatchNorm2d(nf * 8),
             nn.LeakyReLU(0.2, inplace=True),
-            # state size. (nf * 8) x 4 x 4
+
             nn.Conv2d(nf * 8, 1, 4, 1, 0, bias=False),
             nn.AdaptiveAvgPool2d(1),
         )
