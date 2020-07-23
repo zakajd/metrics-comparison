@@ -105,32 +105,32 @@ class DiscriminatorWGAN(nn.Module):
         #     adversarial_loss = adversarial_loss + gradient_penalty
         return adversarial_loss
 
-    # def _gradient_penalty(self, model_disc, target, output, interpolate=False):
-    #     if self.interpolate:
-    #         # Calculate interpolation
-    #         alpha = torch.rand(target.size(0), 1, 1, 1, device=target.device)
-    #         interpolated = alpha * target + (1 - alpha) * output
-    #         interpolated = interpolated.requires_grad_(True)
-    #     else:
-    #         interpolated = target.requires_grad_(True)
+    def _gradient_penalty(self, model_disc, target, output, interpolate=False):
+        if self.interpolate:
+            # Calculate interpolation
+            alpha = torch.rand(target.size(0), 1, 1, 1, device=target.device)
+            interpolated = alpha * target + (1 - alpha) * output
+            interpolated = interpolated.requires_grad_(True)
+        else:
+            interpolated = target.requires_grad_(True)
 
-    #     # Always compute grads. in this part to avoid errors
-    #     with torch.set_grad_enabled(True):
-    #         # Calculate probability of interpolated examples
-    #         prob_interpolated = model_disc(interpolated)#.requires_grad_(True)
+        # Always compute grads. in this part to avoid errors
+        with torch.set_grad_enabled(True):
+            # Calculate probability of interpolated examples
+            prob_interpolated = model_disc(interpolated)#.requires_grad_(True)
 
-    #         # Calculate gradients of probabilities with respect to examples
-    #         gradients = torch.autograd.grad(outputs=prob_interpolated, inputs=interpolated,
-    #                                grad_outputs=torch.ones_like(prob_interpolated),
-    #                                create_graph=True, retain_graph=True, allow_unused=True)[0]
+            # Calculate gradients of probabilities with respect to examples
+            gradients = torch.autograd.grad(outputs=prob_interpolated, inputs=interpolated,
+                                   grad_outputs=torch.ones_like(prob_interpolated),
+                                   create_graph=True, retain_graph=True, allow_unused=True)[0]
 
-    #     # Gradients have shape (batch_size, num_channels, img_width, img_height),
-    #     # so flatten to easily take norm per example in batch
-    #     gradients = gradients.view(target.size(0), -1)
+        # Gradients have shape (batch_size, num_channels, img_width, img_height),
+        # so flatten to easily take norm per example in batch
+        gradients = gradients.view(target.size(0), -1)
 
-    #     # Derivatives of the gradient close to 0 can cause problems because of
-    #     # the square root, so manually calculate norm and add epsilon
-    #     gradients_norm = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-12)
+        # Derivatives of the gradient close to 0 can cause problems because of
+        # the square root, so manually calculate norm and add epsilon
+        gradients_norm = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-12)
 
-    #     # Return gradient penalty
-    #     return 10 * ((gradients_norm - 1) ** 2).mean()
+        # Return gradient penalty
+        return 10 * ((gradients_norm - 1) ** 2).mean()
