@@ -113,7 +113,7 @@ class UNet(nn.Module):
         concat1 = torch.cat((upsample1, x), dim=1)
 
         # Final activation
-        return self._block6(concat1).tanh()
+        return self._block6(concat1).sigmoid()
 
 
 class DnCNN(nn.Module):
@@ -145,7 +145,7 @@ class DnCNN(nn.Module):
 
     def forward(self, x):
         residual = self.layers(x)
-        return (x - residual).tanh()
+        return (x - residual).sigmoid()
 
 
 MODEL_FROM_NAME = {
