@@ -1,26 +1,37 @@
+name : deblur_div2k_dncnn_128_l1
 
-        name : deblur_unet_div2k_L1_MS-SSIM
+## General
+seed : 1
+device : 0 # CPU
+debug: True
+train_dataset: div2k
+val_dataset: div2k
+# mean : [0.5, 0.5, 0.5]
+# std : [1., 1., 1.1]
+aug_type : "medium"
+task : "denoise"
+compute_metrics_repeat : 3
+check_val_every_n_epoch : 5
+num_images_to_log: 4
+metrics: [psnr, ssim, ms-ssim, gmsd, ms-gmsd, ms-gmsdc,
+          fsim, fsimc, vsi, mdsi, vifp, vifp_2,
+          content_vgg16, content_vgg19, 
+          content_vgg16_ap, content_vgg19_ap, 
+          style_vgg16, style_vgg19, lpips, dists, brisque,
+]
 
-        ## General
-        device : 0
-        train_dataset : div2k
-        val_dataset: [div2k,'set5']
-        aug_type : 'medium'
-        task : deblur
-        check_val_every_n_epoch : 2
-        metrics: "['ssim', {}, 'ms-ssim', {}, 'psnr', {}, 'content', {}, 'style', {}, 
-                    'mse', {}, 'mae', {}, 'gmsd', {}, 'ms-gmsd', {}, 'vif', {}]"
-        feature_metrics: "['kid', {}, 'fid', {}, 'msid', {}]"
-        #  'gs', {} NOT INCLUDED YET 
+feature_metrics: [is_metric, is, kid, fid, msid]
 
-        ## Training parameters
-        size : 256
-        model : unet
-        feature_extractor : 'inceptionV3'
-        epochs : 40
-        batch_size : 16
 
-        lr : 3e-4
-        weight-decay : 1e-4
-        # model_params : {'num_layers' : 5}
-        
+## Training parameters
+size : 128
+criterion : [l1, 1.0]
+model : dncnn
+model_params: {}
+# epochs : 10
+batch_size : 8
+
+phases:
+  {ep: [0, 50], lr: [ 0.001 , 0], mode: cos}
+
+weight-decay : 1e-4
