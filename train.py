@@ -6,14 +6,14 @@ import time
 import torch
 from loguru import logger
 import pytorch_tools as pt
+import pytorch_tools.fit_wrapper.callbacks as pt_clb
 
-from src.modules.functional import init_metrics
+from src.features.functional import metrics_from_list, Runner, criterion_from_list
 from src.arg_parser import parse_args
 from src.data import get_dataloader, get_aug
-from src.modules.losses import GeneratorWGAN, DiscriminatorWGAN
-from src.modules.models import MODEL_FROM_NAME, Discriminator
-from src.trainer import GANTrainer
-import src.trainer.callbacks as clbs
+from src.features.models import MODEL_FROM_NAME
+import src.features.callbacks as clb
+
 
 
 def main():
@@ -30,7 +30,7 @@ def main():
     }
     logger.configure(**config)
     # Use print instead of logger to have alphabetic order.
-    print(f"Parameters used for training: {vars(hparams)}")
+    logger.info(f"Parameters used for training: {vars(hparams)}")
 
     # Fix all seeds for reprodusability
     pt.utils.misc.set_random_seed(hparams.seed)
@@ -40,47 +40,87 @@ def main():
     yaml.dump(vars(hparams), open(hparams.outdir + "/config.yaml", "w"))
 
     # Get models and optimizers
-    generator = MODEL_FROM_NAME[hparams.model](**hparams.model_params).cuda()
-    discriminator = Discriminator().cuda()
-    logger.info(f"Generator size: {pt.utils.misc.count_parameters(generator)[0] / 1e6:.02f}M")
-    logger.info(f"Discriminator size: {pt.utils.misc.count_parameters(discriminator)[0] / 1e6:.02f}M")
+    model = MODEL_FROM_NAME[hparams.model](**hparams.model_params).cuda()
+    logger.info(f"Model size: {pt.utils.misc.count_parameters(model)[0] / 1e6:.02f}M")
 
-    generator_optimizer = torch.optim.Adam(
-        generator.parameters(), weight_decay=hparams.weight_decay, amsgrad=True)  # Get LR from phases later
-    discriminator_optimizer = torch.optim.Adam(
-        discriminator.parameters(), weight_decay=hparams.weight_decay, amsgrad=True)  # Get LR from phases later
+    optimizer = torch.optim.Adam(
+        model.parameters(), weight_decay=hparams.weight_decay, amsgrad=True)  # Get LR from phases later
 
     # Get loss
-    generator_loss = GeneratorWGAN()  # !!! Init params
-    discriminator_loss = DiscriminatorWGAN()  # !!! Init params
+    loss = criterion_from_list(hparams.criterion).cuda()
 
     # Init per-image metrics and add names
-    metrics = init_metrics(hparams.metrics)
+    metrics = metrics_from_list(hparams.metrics, reduction='mean')
     logger.info(f"Metrics: {[m.name for m in metrics]}")
 
     # Feature metrics are defined as a callback
-    feature_clb_vgg16 = clbs.FeatureMetrics(feature_extractor="vgg16", metrics=hparams.feature_metrics)
-    feature_clb_vgg19 = clbs.FeatureMetrics(feature_extractor="vgg19", metrics=hparams.feature_metrics)
-    feature_clb_inception = clbs.FeatureMetrics(feature_extractor="inception", metrics=hparams.feature_metrics)
+    feature_clb_vgg16 = clb.FeatureMetrics(
+        feature_extractor="vgg16", metric_names=hparams.feature_metrics)
+    feature_clb_vgg19 = clb.FeatureMetrics(
+        feature_extractor="vgg19", metric_names=hparams.feature_metrics)
+    feature_clb_inception = clb.FeatureMetrics(
+        feature_extractor="inception", metric_names=hparams.feature_metrics)
 
     # Scheduler is an advanced way of planning experiment
-    sheduler = clbs.PhasesScheduler(hparams.phases)
+    sheduler = pt_clb.PhasesScheduler(hparams.phases)
 
+    save_name = "model_{monitor}.chpn"
     # Init train loop
-    trainer = GANTrainer(
-        models=[generator, discriminator],
-        optimizers=[generator_optimizer, discriminator_optimizer],
-        criterions=[generator_loss, discriminator_loss],
+    runner = Runner(
+        model=model,
+        optimizer=optimizer,
+        criterion=loss,
         callbacks=[
-            clbs.Timer(),
-            clbs.ConsoleLogger(),
+            pt_clb.Timer(),
+            clb.ConsoleLogger(metrics=["ssim", "psnr"]),
             feature_clb_vgg16,
             feature_clb_vgg19,
             feature_clb_inception,
-            clbs.TensorBoard(hparams.outdir, log_every=40, num_images=2),
+            clb.TensorBoard(hparams.outdir, log_every=40, num_images=2),
 
             # List of CheckpointSavers, one per metric
-            clbs.CheckpointSaver(hparams.outdir, save_name="model_{monitor}_{ep}_{metric:.2f}.chpn", monitor='loss', minimize=True),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='loss', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='psnr', mode='max', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='ssim', mode='max', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='ms-ssim', mode='max', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='gmsd', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='ms-gmsd', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='ms-gmsdc', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='fsim', mode='max', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='fsimc', mode='max', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='vsi', mode='max', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='mdsi', mode='max', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='vifp', mode='max', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='content_vgg16', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='content_vgg19', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='content_vgg16_ap', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='content_vgg19_ap', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='style_vgg16', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='style_vgg19', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='lpips', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='dists', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='brisque', mode='min', verbose=False),
             sheduler,
         ],
         metrics=metrics,
@@ -98,7 +138,7 @@ def main():
         dataset=hparams.val_dataset, train=False, transform=transform, batch_size=hparams.batch_size)
 
     # Train
-    trainer.fit(
+    runner.fit(
         train_loader,
         epochs=sheduler.tot_epochs,
         val_loader=val_loader,
