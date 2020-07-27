@@ -40,6 +40,13 @@ def get_parser():
     add_arg("--num_images_to_log", type=int, default=4, help="How many images to plot each val epoch")
 
     #  Training parameters
+    add_arg(
+        "--criterion",
+        type=str,
+        required=True,
+        nargs="+",
+        help="List of criterions to use.",
+    )
     add_arg('--model', type=str, default='unet', help='Model name')
     add_arg("--model_params", type=eval, help="Additional model params as kwargs")
 #     add_arg('--pretrained', dest='pretrained', action='store_true', help='use pre-trained model')
@@ -51,11 +58,12 @@ def get_parser():
             help='momentum')
     add_arg('--wd', '--weight-decay', default=1e-4, type=float,
             metavar='W', help='weight decay', dest='weight_decay')
-    add_arg("--metrics", type=eval, help="Image metrics and their parameters")
-    add_arg("--feature_metrics", type=eval, help="Feature metrics and their parameters")
+    add_arg("--metrics", type=str, nargs='+', help="Image metrics and their parameters")
+    add_arg("--feature_metrics", type=str, nargs='+', help="Feature metrics and their parameters")
     add_arg(
         "--phases",
         type=eval,
+        nargs='*',
         help="Specify epoch order of data resize and learning rate schedule",
     )
 

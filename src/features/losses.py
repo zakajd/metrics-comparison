@@ -2,14 +2,13 @@
 Implementation of VGG16 loss, originaly used for style transfer and usefull in many other task (including GAN training)
 It's work in progress, no guarantees that code will work
 """
-from typing import List
 import functools
 
 import piq
 import torch
 
 
-class Loss(_Loss):
+class Loss(torch.nn.modules.loss._Loss):
     """Loss which supports addition and multiplication"""
 
     def __add__(self, other):

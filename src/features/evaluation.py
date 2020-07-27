@@ -2,7 +2,6 @@
 Function to compute PLCC, SRCC, KRCC scores
 """
 import os
-import functools
 import collections
 from typing import List
 
@@ -13,7 +12,8 @@ import torchvision
 from tqdm.auto import tqdm
 from scipy.stats import pearsonr, spearmanr, kendalltau
 
-from src.modules.models import Regression
+from src.features.metrics import METRIC_FROM_NAME
+from src.features.models import Regression
 from src.data.utils import crop_patches
 from src.data.datasets import TID2013, KADID10k, DistortionSampler
 
@@ -22,76 +22,6 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 DATASET_FROM_NAME = {
     "tid2013": TID2013,
     "kadid10k": KADID10k,
-}
-
-# Init metrics
-
-METRIC_FROM_NAME = {
-    # Full Reference
-    "psnr": functools.partial(piq.psnr, reduction='none', data_range=1.0),
-    "ssim": functools.partial(piq.ssim, data_range=1.0, size_average=False, full=False),
-    "ms_ssim": functools.partial(piq.multi_scale_ssim, data_range=1.0, size_average=False),
-    "vif_p": functools.partial(piq.vif_p, sigma_n_sq=1.0, data_range=1.0, reduction='none'),
-    "vif_p_2": functools.partial(piq.vif_p, sigma_n_sq=2.0, data_range=1.0, reduction='none'),
-    "gmsd": piq.GMSDLoss(reduction='none', data_range=1.0),
-    "ms_gmsd": piq.MultiScaleGMSDLoss(reduction='none', data_range=1.0),
-    "ms_gmsdc": piq.MultiScaleGMSDLoss(chromatic=True, reduction='none', data_range=1.0),
-    "fsim": functools.partial(piq.fsim, data_range=1.0, chromatic=False, reduction='none'),
-    "fsimc": functools.partial(piq.fsim, data_range=1.0, chromatic=True, reduction='none'),
-    "vsi": functools.partial(piq.vsi, data_range=1.0, reduction='none'),
-    "mdsi": functools.partial(piq.mdsi, data_range=1.0, reduction='none'),
-
-    # "content_vgg16": piq.ContentLoss(
-    #     layers=['conv1_1', 'conv2_1', 'conv3_1', 'conv4_1', 'conv5_1'],
-    #     weights=[0.2, 0.2, 0.2, 0.2, 0.2],
-    #     normalize_features=True,
-    #     reduction='none'),
-    # "content_vgg16_ap": piq.ContentLoss(
-    #     layers=['conv1_1', 'conv2_1', 'conv3_1', 'conv4_1', 'conv5_1'],
-    #     weights=[0.2, 0.2, 0.2, 0.2, 0.2],
-    #     normalize_features=True,
-    #     replace_pooling=True,
-    #     reduction='none'),
-
-    # "content_vgg19": piq.ContentLoss(
-    #     feature_extractor='vgg19',
-    #     layers=['conv1_2', 'conv2_2', 'conv3_4', 'conv4_4', 'conv5_4'],
-    #     weights=[0.2, 0.2, 0.2, 0.2, 0.2],
-    #     normalize_features=True,
-    #     reduction='none'),
-    # "content_vgg19_ap": piq.ContentLoss(
-    #     feature_extractor='vgg19',
-    #     layers=['conv1_2', 'conv2_2', 'conv3_4', 'conv4_4', 'conv5_4'],
-    #     weights=[0.2, 0.2, 0.2, 0.2, 0.2],
-    #     normalize_features=True,
-    #     replace_pooling=True,
-    #     reduction='none'),
-
-    # "style_vgg16": piq.StyleLoss(
-    #     feature_extractor='vgg16',
-    #     layers=['conv1_2', 'conv2_2', 'conv3_3', 'conv4_3', 'conv5_3'],
-    #     weights=[0.2, 0.2, 0.2, 0.2, 0.2],
-    #     normalize_features=False,
-    #     reduction='none'),
-    # "style_vgg19": piq.StyleLoss(
-    #     feature_extractor='vgg19',
-    #     layers=['conv1_2', 'conv2_2', 'conv3_3', 'conv4_3', 'conv5_3'],
-    #     weights=[0.2, 0.2, 0.2, 0.2, 0.2],
-    #     normalize_features=False,
-    #     reduction='none'),
-
-    "lpips_ap": piq.LPIPS(replace_pooling=True, reduction="none"),
-    "dists": piq.DISTS(reduction="none"),
-
-    # No reference
-    "brisque": functools.partial(piq.brisque, data_range=1.0, reduction='none'),
-
-    # Distribution based metrics
-    "fid": piq.FID(),
-    "kid": piq.KID(),
-    "gs": piq.GS(sample_size=64, num_iters=500, num_workers=4, i_max=256),
-    "is": piq.IS(num_splits=3),
-    "msid": piq.MSID(),
 }
 
 
