@@ -1,8 +1,7 @@
-import piq
-import torch
 import torchvision
-from src.modules.wrappers import InceptionV3Wrapper, BRISQUEWrapper, ISWrapper
-from src.modules.losses import PSNR
+
+from src.features.losses import MSELoss, L1Loss, MultiScaleSSIMLoss
+from src.features.wrappers import InceptionV3Wrapper
 
 EXTRACTOR_FROM_NAME = {
     "vgg16": torchvision.models.vgg16(pretrained=True, progress=False).features,
@@ -11,40 +10,11 @@ EXTRACTOR_FROM_NAME = {
 }
 
 
-METRIC_FROM_NAME = {
-    # FR
-    "mae": torch.nn.L1Loss,
-    "mse": torch.nn.MSELoss,
-    "psnr": PSNR,
-    "ssim": piq.SSIMLoss,
-    "ms-ssim": piq.MultiScaleSSIMLoss,
-    # "iw-ssim": piq.iw_ssim,
-    "gmsd": piq.GMSDLoss,
-    "ms-gmsd": piq.MultiScaleGMSDLoss,
-    "ms-gmsdc": piq.MultiScaleGMSDLoss,
-    "fsim": piq.FSIMLoss,
-    "fsimc": piq.FSIMLoss,
-    "vsi": piq.VSILoss,
-    "mdsi": piq.MDSILoss,
-    "vif": piq.VIFLoss,
-
-    "content": piq.ContentLoss,
-    "content_ap": piq.ContentLoss,
-    "style": piq.StyleLoss,
-    "style_ap": piq.StyleLoss,
-    "lpips": piq.LPIPS,
-    "dists": piq.DISTS,
-
-    # NR
-    "brisque": BRISQUEWrapper,
-
-    # Distrib based
-    "is_metric": ISWrapper,
-    "is": piq.IS,
-    "fid": piq.FID,
-    "gs": piq.GS,
-    "kid": piq.KID,
-    "msid": piq.MSID,
+# All this losses expect raw logits as inputs
+LOSS_FROM_NAME = {
+    "l1": L1Loss(),
+    "l2": MSELoss(),
+    "ms-ssim": MultiScaleSSIMLoss(kernel_size=5, kernel_sigma=1.5)
 }
 
 
