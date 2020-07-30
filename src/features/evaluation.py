@@ -12,10 +12,10 @@ import torchvision
 from tqdm.auto import tqdm
 from scipy.stats import pearsonr, spearmanr, kendalltau
 
-from src.features.metrics import METRIC_FROM_NAME
 from src.features.models import Regression
 from src.data.utils import crop_patches
 from src.data.datasets import TID2013, KADID10k, DistortionSampler
+from src.features.functional import metrics_from_list
 
 # Useful for some metrics
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -50,7 +50,7 @@ def compute_metrics(
     metric_scores = collections.defaultdict(list)
 
     # Init metrics
-    metrics = [METRIC_FROM_NAME[metric] for metric in metrics_list]
+    metrics = metrics_from_list(metrics_list, model_name="vgg16", reduction="none")
 
     if dist and (extractor_name == "vgg16"):
         feature_extractor = torchvision.models.vgg16(pretrained=True, progress=True).features.to("cuda")

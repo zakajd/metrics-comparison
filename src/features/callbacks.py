@@ -1,15 +1,12 @@
 import os
-import copy
 import collections
-from typing import List
 
 import torch
 from tqdm import tqdm
 import pytorch_tools as pt
+from pytorch_tools.utils.misc import listify, to_numpy, AverageMeter
 
-from src.features.wrappers import DummyAverageMeter
 from src.utils import EXTRACTOR_FROM_NAME
-from src.features.metrics import METRIC_FROM_NAME
 from src.data import crop_patches
 
 
@@ -32,7 +29,7 @@ class ConsoleLogger(pt.fit_wrapper.callbacks.ConsoleLogger):
     def on_loader_end(self):
         # update to avg
         desc = collections.OrderedDict({"Loss": f"{self.state.loss_meter.avg:.4f}"})
-        for metric in self.state.metric_meters:
+        for metric in self.state.metric_meters.values():
             if (self.metrics is None) or (metric.name in self.metrics):
                 desc.update({metric.name: f"{metric.avg:.3f}"})
         self.pbar.set_postfix(**desc)
@@ -41,7 +38,7 @@ class ConsoleLogger(pt.fit_wrapper.callbacks.ConsoleLogger):
 
     def on_batch_end(self):
         desc = collections.OrderedDict({"Loss": f"{self.state.loss_meter.avg_smooth:.4f}"})
-        for metric in self.state.metric_meters:
+        for metric in self.state.metric_meters.values():
             if (self.metrics is None) or (metric.name in self.metrics):
                 desc.update({metric.name: f"{metric.avg:.3f}"})
         self.pbar.set_postfix(**desc)
@@ -49,7 +46,6 @@ class ConsoleLogger(pt.fit_wrapper.callbacks.ConsoleLogger):
 
 
 class CheckpointSaver(pt.fit_wrapper.callbacks.CheckpointSaver):
-
     def on_epoch_end(self):
         current = self.get_monitor_value()
         if self.monitor_op(current, self.best):
@@ -94,6 +90,7 @@ class TensorBoard(pt.fit_wrapper.callbacks.TensorBoard):
 
     def on_batch_end(self):
         super().on_batch_end()
+
         # Save first validation batch for plotting
         if not self.state.is_train and not self.saved:
             self.input = self.state.input
@@ -112,34 +109,34 @@ class TensorBoard(pt.fit_wrapper.callbacks.TensorBoard):
                 self.writer.add_image(f'val_image/{i}', final_image, self.state.epoch)
 
 
-class FeatureMetrics(pt.fit_wrapper.callbacks.Callback):
-    r"""Dirty hack for computation of distribution metrics.
-    NOTE: This callback shuold be called before TensorBoard logging, otherwise it won't work properly.
-
+class FeatureLoaderMetrics(pt.fit_wrapper.callbacks.Callback):
+    r"""
     Args:
+        metrics: List with pre-inited metric objects
         feature_extractor: Name of model used to extract features
-        metrics: List with metric names
     """
-    def __init__(self, feature_extractor: str, metric_names: List) -> None:
+    def __init__(self, metrics, feature_extractor: str) -> None:
+        super().__init__()
+        self.metrics = listify(metrics)
+        self.metric_names = [m.name for m in self.metrics]
+
         # Define feature extractor
         self.extractor_name = feature_extractor
         self.feature_extractor = EXTRACTOR_FROM_NAME[feature_extractor].cuda()
 
-        self.metrics = [copy.copy(METRIC_FROM_NAME[name]) for name in metric_names]
-        # Add name for proper logging
-        for metric, name in zip(self.metrics, metric_names):
-            metric.name = f"{name}_{self.extractor_name}"
+        self.target_features = None
+        self.prediction_features = None
+
+    def on_begin(self):
+        for name in self.metric_names:
+            self.state.metric_meters[name] = AverageMeter(name=name)
 
     def on_loader_begin(self):
-        r"""Reset state"""
-        if self.state.is_train:
-            return
-        self.prediction_features = []
         self.target_features = []
+        self.prediction_features = []
 
+    @torch.no_grad()
     def on_batch_end(self):
-        if self.state.is_train:
-            return
         _, target = self.state.input
         prediction = self.state.output
 
@@ -149,24 +146,22 @@ class FeatureMetrics(pt.fit_wrapper.callbacks.Callback):
 
         dataset = torch.utils.data.TensorDataset(prediction_patches, target_patches)
         loader = torch.utils.data.DataLoader(dataset, batch_size=10)
+
         # Extract features
+        for batch in loader:
+            pred_patches, trgt_patches = batch
+            pred_features = torch.nn.functional.adaptive_avg_pool2d(self.feature_extractor(pred_patches), 1)
+            trgt_features = torch.nn.functional.adaptive_avg_pool2d(self.feature_extractor(trgt_patches), 1)
 
-        with torch.no_grad():
-            for batch in loader:
-                pred_patches, trgt_patches = batch
-                pred_features = torch.nn.functional.adaptive_avg_pool2d(self.feature_extractor(pred_patches), 1)
-                trgt_features = torch.nn.functional.adaptive_avg_pool2d(self.feature_extractor(trgt_patches), 1)
+            self.prediction_features.append(pred_features)
+            self.target_features.append(trgt_features)
 
-                self.prediction_features.append(pred_features.squeeze())
-                self.target_features.append(trgt_features.squeeze())
-
+    @torch.no_grad()
     def on_loader_end(self):
-        if self.state.is_train:
-            return
         # Reduce collected features
-        prediction_features = torch.cat(self.prediction_features, dim=0)
-        target_features = torch.cat(self.target_features, dim=0)
+        prediction_features = torch.cat(self.prediction_features).squeeze()
+        target_features = torch.cat(self.target_features).squeeze()
 
-        for metric in self.metrics:
-            score = metric(prediction_features, target_features)
-            self.state.metric_meters.append(DummyAverageMeter(value=score.cpu().numpy(), name=metric.name))
+        for metric, name in zip(self.metrics, self.metric_names):
+            value = to_numpy(metric(prediction_features, target_features))
+            self.state.metric_meters[name].update(value)

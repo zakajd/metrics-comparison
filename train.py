@@ -2,18 +2,19 @@ import os
 import sys
 import yaml
 import time
+import copy
 
 import torch
 from loguru import logger
 import pytorch_tools as pt
 import pytorch_tools.fit_wrapper.callbacks as pt_clb
 
-from src.features.functional import metrics_from_list, Runner, criterion_from_list
+from src.features.functional import metrics_from_list, criterion_from_list
 from src.arg_parser import parse_args
 from src.data import get_dataloader, get_aug
 from src.features.models import MODEL_FROM_NAME
 import src.features.callbacks as clb
-
+from src.features.metrics import METRIC_FROM_NAME
 
 
 def main():
@@ -53,29 +54,28 @@ def main():
     metrics = metrics_from_list(hparams.metrics, reduction='mean')
     logger.info(f"Metrics: {[m.name for m in metrics]}")
 
-    # Feature metrics are defined as a callback
-    feature_clb_vgg16 = clb.FeatureMetrics(
-        feature_extractor="vgg16", metric_names=hparams.feature_metrics)
-    feature_clb_vgg19 = clb.FeatureMetrics(
-        feature_extractor="vgg19", metric_names=hparams.feature_metrics)
-    feature_clb_inception = clb.FeatureMetrics(
-        feature_extractor="inception", metric_names=hparams.feature_metrics)
+    # Init feature metrics and add names
+    feature_metrics = []
+    feature_extractor = "vgg16"
+    for name in hparams.feature_metrics:
+        metric = copy.copy(METRIC_FROM_NAME[name])
+        metric.name = f"{name}_{feature_extractor}"
+        feature_metrics.append(metric)
 
     # Scheduler is an advanced way of planning experiment
     sheduler = pt_clb.PhasesScheduler(hparams.phases)
 
     save_name = "model_{monitor}.chpn"
     # Init train loop
-    runner = Runner(
+    runner = pt.fit_wrapper.Runner(
         model=model,
         optimizer=optimizer,
         criterion=loss,
         callbacks=[
             pt_clb.Timer(),
+            clb.FeatureLoaderMetrics(metrics=feature_metrics, feature_extractor="vgg16"),
+            pt_clb.BatchMetrics(metrics=metrics),
             clb.ConsoleLogger(metrics=["ssim", "psnr"]),
-            feature_clb_vgg16,
-            feature_clb_vgg19,
-            feature_clb_inception,
             clb.TensorBoard(hparams.outdir, log_every=40, num_images=2),
 
             # List of CheckpointSavers, one per metric
@@ -104,26 +104,27 @@ def main():
             clb.CheckpointSaver(
                 hparams.outdir, save_name=save_name, monitor='vifp', mode='max', verbose=False),
             clb.CheckpointSaver(
-                hparams.outdir, save_name=save_name, monitor='content_vgg16', mode='min', verbose=False),
-            clb.CheckpointSaver(
-                hparams.outdir, save_name=save_name, monitor='content_vgg19', mode='min', verbose=False),
-            clb.CheckpointSaver(
                 hparams.outdir, save_name=save_name, monitor='content_vgg16_ap', mode='min', verbose=False),
             clb.CheckpointSaver(
-                hparams.outdir, save_name=save_name, monitor='content_vgg19_ap', mode='min', verbose=False),
-            clb.CheckpointSaver(
                 hparams.outdir, save_name=save_name, monitor='style_vgg16', mode='min', verbose=False),
-            clb.CheckpointSaver(
-                hparams.outdir, save_name=save_name, monitor='style_vgg19', mode='min', verbose=False),
             clb.CheckpointSaver(
                 hparams.outdir, save_name=save_name, monitor='lpips', mode='min', verbose=False),
             clb.CheckpointSaver(
                 hparams.outdir, save_name=save_name, monitor='dists', mode='min', verbose=False),
             clb.CheckpointSaver(
                 hparams.outdir, save_name=save_name, monitor='brisque', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='is_metric_vgg16', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='is_vgg16', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='kid_vgg16', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='fid_vgg16', mode='min', verbose=False),
+            clb.CheckpointSaver(
+                hparams.outdir, save_name=save_name, monitor='msid_vgg16', mode='min', verbose=False),
             sheduler,
         ],
-        metrics=metrics,
     )
 
     # Get dataloaders
@@ -152,4 +153,4 @@ def main():
 if __name__ == "__main__":
     start_time = time.time()
     main()
-    print(f"Finished Training. Took: {(time.time() - start_time) / 60:.02f}m")
+    logger.info(f"Finished Training. Took: {(time.time() - start_time) / 60:.02f}m")
