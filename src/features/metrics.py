@@ -81,6 +81,48 @@ METRIC_FROM_NAME = {
     "msid": piq.MSID(),
 }
 
+MODE_FROM_NAME = {
+    # Full Reference
+    "mae": "min",
+    "mse": "min",
+    "psnr": "max",
+    "psnr_y": "max",
+    "ssim": "max",
+    "ms-ssim": "max",
+    "vifp": "max",
+    "vifp_2": "max",
+    "gmsd": "min",
+    "ms-gmsd": "min",
+    "ms-gmsdc": "min",
+    "fsim": "max",
+    "fsimc": "max",
+    "vsi": "max",
+    "mdsi": "max",
+
+    "content_vgg16": "min",
+    "content_vgg16_ap": "min",
+
+    "content_vgg19": "min",
+    "content_vgg19_ap": "min",
+
+    "style_vgg16": "min",
+    "style_vgg19": "min",
+
+    "lpips": "min",
+    "lpips_ap": "min",
+    "dists": "min",
+
+    # No reference
+    "brisque": "min",
+
+    # Distribution based metrics
+    "fid_vgg16": "min",
+    "kid_vgg16": "min",
+    "gs_vgg16": "min",
+    "is_metric_vgg16": "min",
+    "is_vgg16": "min",
+    "msid_vgg16": "min",
+}
 
 def pearson_correlation(x, y, invert=False):
     vx = x - torch.mean(x)

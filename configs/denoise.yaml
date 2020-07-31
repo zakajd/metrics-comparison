@@ -1,92 +1,35 @@
-name : "denoise_div2k_gan"
+name : denoise_div2k_dncnn_256_l1_ms-ssim
 
 ## General
 seed : 1
 device : 0 # CPU
 debug: False
-train_dataset: "div2k"
-val_dataset: "div2k"
+train_dataset: div2k
+val_dataset: div2k
 # mean : [0.5, 0.5, 0.5]
-# std : [1., 1., 1.]
-aug_type : "light"
-task : "denoise"
+# std : [1., 1., 1.1]
+aug_type : medium
+task : denoise
 compute_metrics_repeat : 3
 check_val_every_n_epoch : 5
 num_images_to_log: 4
-metrics: "[
-  'mae', {},
-  'mse', {},
-  'ssim', {'data_range': 1.0, 'kernel_size': 5, 'kernel_sigma': 1.5},
-  'ms-ssim', {'data_range': 1.0, 'kernel_size': 5, 'kernel_sigma': 1.5},
-  'gmsd', {'data_range': 1.0},
-  'ms-gmsd', {'data_range': 1.0, 'chromatic': False},
-  'ms-gmsdc', {'data_range': 1.0, 'chromatic': True},
-  'fsim', {'data_range': 1.0, 'chromatic': False},
-  'fsimc', {'data_range': 1.0, 'chromatic': True},
-  'vsi', {'data_range': 1.0},
-  'mdsi', {'data_range': 1.0, 'combination': 'sum'},
-  'vif', {'data_range': 1.0, 'sigma_n_sq': 2.0},
+metrics: [psnr, ssim, ms-ssim, gmsd, ms-gmsd, ms-gmsdc,
+          fsim, fsimc, vsi, mdsi, vifp,
+          content_vgg16_ap, style_vgg16, lpips, dists, brisque,
+]
 
-  'content', {'feature_extractor': 'vgg16',
-              'layers': ['conv1_1', 'conv2_1', 'conv3_1', 'conv4_1', 'conv5_1'],
-              'weights': [0.2, 0.2, 0.2, 0.2, 0.2],
-              'normalize_features': True},
-  'content', {'feature_extractor': 'vgg19',
-              'layers': ['conv1_2', 'conv2_2', 'conv3_4', 'conv4_4', 'conv5_4'],
-              'weights': [0.2, 0.2, 0.2, 0.2, 0.2],
-              'normalize_features': True},  
-  
-  'content_ap', {'feature_extractor': 'vgg16',
-              'layers': ['conv1_1', 'conv2_1', 'conv3_1', 'conv4_1', 'conv5_1'],
-              'weights': [0.2, 0.2, 0.2, 0.2, 0.2],
-              'normalize_features': True,
-              'replace_pooling': True},
-  'content_ap', {'feature_extractor': 'vgg19',
-              'layers': ['conv1_2', 'conv2_2', 'conv3_4', 'conv4_4', 'conv5_4'],
-              'weights': [0.2, 0.2, 0.2, 0.2, 0.2],
-              'normalize_features': True,
-              'replace_pooling': True},
+feature_metrics: [is_metric, is, kid, fid, msid]
 
-  'style', {'feature_extractor': 'vgg16',
-            'layers': ['conv1_1', 'conv2_1', 'conv3_1', 'conv4_1', 'conv5_1'],
-            'weights': [0.2, 0.2, 0.2, 0.2, 0.2],
-            'normalize_features': True},
-  'style', {'feature_extractor': 'vgg19',
-            'layers': ['conv1_2', 'conv2_2', 'conv3_4', 'conv4_4', 'conv5_4'],
-            'weights': [0.2, 0.2, 0.2, 0.2, 0.2],
-            'normalize_features': True},  
-  'lpips', {'replace_pooling': True},
-  'dists', {},
-
-  'brisque', {'data_range': 1.0}
-
-]"
-feature_metrics: "[
-  'is_metric', {'num_splits': 3},
-  'is', {'num_splits': 3},
-  'kid', {},
-  'fid', {},
-  'msid', {},
-]"
 
 ## Training parameters
-size : 128
-model : "dncnn"
+size : 256
+criterion : [l1, 0.16, ms-ssim, 0.84]
+model : dncnn
 model_params: {}
-epochs : 10
-batch_size : 8
+# epochs : 10
+batch_size : 16
 
-phases: {
-  "generator": [
-    {"ep":[0,8],  "lr":[0.005,0.0005], "mom":0.9, },
-    {"ep":[8,24], "lr":[0.0005, 0.00005], "mode":"cos"},
-    {'ep':[24, 30], "lr": 0.000005}],
-  "discriminator": [
-    {"ep":[0,8],  "lr":[0.001,0.0001], "mom":0.9, },
-    {"ep":[8,24], "lr":[0.0001, 0.00001], "mode":"cos"},
-    {'ep':[24, 30], "lr": 0.000001}],
-}
+phases:
+  {ep: [0, 80], lr: [ 0.001 , 0], mode: cos}
 
-# momentum : 0.9
-weight-decay : 1e-4
-# model_params : {"num_layers" : 5}
+weight-decay : 0

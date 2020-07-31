@@ -383,7 +383,7 @@ class DIV2K(torch.utils.data.Dataset):
             root, suffix=".png", prefix=True, remove_suffix=False
         )
 
-        self.files = list(walker)
+        self.files = list(walker) if train else sorted(list(walker))
         self.transform = transform
 
     def __getitem__(self, index):
