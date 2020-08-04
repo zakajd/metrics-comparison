@@ -1,0 +1,26 @@
+{
+  "completions": [
+    {
+      "created_at": 1596454296,
+      "id": 8001,
+      "lead_time": 1.727,
+      "result": [
+        {
+          "from_name": "choice",
+          "id": "viBiJL2cIn",
+          "to_name": "image",
+          "type": "choices",
+          "value": {
+            "choices": [
+              "Boeing"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "data": {
+    "image": "http://38b5b1a77e0b.eu.ngrok.io/data/processed/deblur/psnr/00.jpeg"
+  },
+  "id": 8
+}
